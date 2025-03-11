@@ -1,7 +1,7 @@
 ---
 description: 
 globs: 
-alwaysApply: false
+alwaysApply: true
 ---
 # Cursor Agent Rules: Best Practices for AI-Assisted Code Generation
 

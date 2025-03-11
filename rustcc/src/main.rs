@@ -1,4 +1,3 @@
 
 fn main() {
-    println!("Hello, rustcc!");
-}
+    println!("Hello, rustcc!");}

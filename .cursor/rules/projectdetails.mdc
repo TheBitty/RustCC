@@ -1,0 +1,80 @@
+# RustCC Project Information
+
+## Project Definition
+RustCC is a C code obfuscation compiler written in Rust. The project aims to transform standard C code into functionally-equivalent versions that are more resistant to reverse engineering, primarily for security research and educational purposes.
+
+## Project Type
+- **Full C compiler** with special focus on code obfuscation
+- Supports both direct compilation and source-to-source transformation
+- Educational and research tool (single-developer project)
+
+## Technical Specifications
+
+### Core Functionality
+- Parse C source code into AST
+- Apply configurable obfuscation transformations
+- Optionally perform standard compiler optimizations
+- Generate either obfuscated C code or compiled binaries
+- Support the latest C language features (C17/C18)
+
+### Implementation Details
+- Written in Rust
+- Considering LLVM integration for backend compiler phases
+- Cross-platform (Windows, macOS, Linux)
+- Command-line interface for configuration
+- Multiple obfuscation levels (0-3)
+
+### Specific Transformations
+1. **String Encryption**: Transforms string literals into encrypted data with runtime decryption
+2. **Control Flow Flattening**: Restructures logical flow into flattened state machines
+3. **API Call Hiding**: Replaces direct API calls with dynamic resolution techniques
+
+### Project Structuer
+```
+src/
+├── main.rs             # Entry point
+├── parser/             # C code parsing
+├── transforms/         # Obfuscation transforms
+│   ├── string.rs       # String obfuscation
+│   ├── control_flow.rs # Control flow flattening
+│   └── api.rs          # API call hiding
+├── compiler.rs         # Backend compiler integration
+└── cli.rs              # Command-line interface
+```
+
+## Project Status
+- **Current phase**: Early planning and environment setup
+- **Implementation status**: Not yet started, exploring architecture
+- **Dependencies**: To be determined (considering tree-sitter for parsing)
+- **Parsing approach**: Not decided yet
+
+## Development Timeline
+1. **Research Phase** (Current): Study compiler design and obfuscation techniques
+2. **Basic Infrastructure**: Project setup, CLI framework, parser implementation
+3. **Frontend Compiler**: AST generation and semantic analysis
+4. **Core Transformations**: Implement obfuscation techniques
+5. **Optimization**: Add standard compiler optimizations
+6. **Backend**: Implement code generation
+7. **Integration**: Complete compiler pipeline
+8. **Documentation**: Educational materials and usage guides
+
+## Technical Challenges
+- Maintaining code correctness after obfuscation
+- Handling the complexity of C language parsing
+- Balancing obfuscation strength with performance impact
+- Ensuring cross-platform compatibility
+
+## Purpose of Transformations
+The obfuscation techniques are designed to:
+- Make static analysis more difficult
+- Increase reverse engineering complexity
+- Hide sensitive strings and API calls
+- Protect intellectual property in educational contexts
+
+## Dependencies and Tools
+- Considering tree-sitter or custom parsing
+- May integrate with LLVM for backend
+- Will use Rust's standard library and cargo ecosystem
+- Testing will use standard Rust testing frameworks
+
+This project is in early planning stages, with implementation details still being determined.
