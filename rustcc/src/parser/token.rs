@@ -8,6 +8,7 @@ pub struct Token {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+#[allow(dead_code)]
 pub enum TokenType {
     // Keywords
     Int, Char, Void, If, Else, While, For, Return, Break, Continue, Struct,

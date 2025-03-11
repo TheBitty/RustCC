@@ -1,1 +1,1 @@
-/Users/leog/RustCC/rustcc/target/debug/rustcc: /Users/leog/RustCC/rustcc/src/main.rs
+/Users/leog/RustCC/rustcc/target/debug/rustcc: /Users/leog/RustCC/rustcc/src/cli.rs /Users/leog/RustCC/rustcc/src/compiler.rs /Users/leog/RustCC/rustcc/src/main.rs /Users/leog/RustCC/rustcc/src/parser/lexer.rs /Users/leog/RustCC/rustcc/src/parser/mod.rs /Users/leog/RustCC/rustcc/src/parser/token.rs
