@@ -1,5 +1,7 @@
 use crate::parser::lexer::Lexer;
-use crate::parser::token::TokenType;
+use crate::parser::parser::Parser;
+use crate::analyzer::SemanticAnalyzer;
+use crate::codegen::CodeGenerator;
 use std::fs;
 use std::path::Path;
 
@@ -17,40 +19,50 @@ impl Compiler {
     }
     
     pub fn compile(&self) -> Result<(), String> {
+        println!("Compiling {} to {}", self.source_file, self.output_file);
+        
         // Read the source file
         let source = match fs::read_to_string(&self.source_file) {
             Ok(content) => content,
             Err(e) => return Err(format!("Failed to read source file: {}", e)),
         };
         
+        println!("Source code:\n{}", source);
+        
         // Step 1: Lexical Analysis
         let mut lexer = Lexer::new(source);
-        let tokens = lexer.scan_tokens().clone();
+        let tokens = lexer.scan_tokens();
         
-        // Basic validation: check if the file at least has a main function
-        let main_fn_exists = tokens.iter().enumerate().any(|(i, token)| {
-            if i + 2 < tokens.len() {
-                token.token_type == TokenType::Int &&
-                tokens[i + 1].token_type == TokenType::Identifier && 
-                tokens[i + 1].lexeme == "main" &&
-                tokens[i + 2].token_type == TokenType::LeftParen
-            } else {
-                false
+        println!("Tokens: {:?}", tokens);
+        
+        // Step 2: Parsing
+        let mut parser = Parser::new(tokens.clone());
+        let ast = match parser.parse() {
+            Ok(ast) => ast,
+            Err(e) => {
+                println!("Parsing error: {}", e);
+                return Err(e);
             }
-        });
+        };
         
-        if !main_fn_exists {
-            return Err("No main function found in the source file".to_string());
+        println!("AST: {:?}", ast);
+        
+        // Step 3: Semantic Analysis
+        let mut analyzer = SemanticAnalyzer::new();
+        if let Err(e) = analyzer.analyze(&ast) {
+            println!("Semantic error: {}", e);
+            return Err(e);
         }
         
-        // Placeholder for further compilation steps
-        // TODO: Implement parsing
-        // TODO: Implement semantic analysis
-        // TODO: Implement code generation
+        // Step 4: Code Generation
+        let mut generator = CodeGenerator::new();
+        let assembly = generator.generate(&ast);
         
-        // For now, just write a placeholder output file
+        println!("Generated assembly:\n{}", assembly);
+        
+        // Write the output file
         let output_path = Path::new(&self.output_file);
-        match fs::write(output_path, "// Generated code will go here") {
+        match fs::write(output_path, assembly) {
             Ok(_) => Ok(()),
             Err(e) => Err(format!("Failed to write output file: {}", e)),
         }
@@ -67,7 +79,7 @@ mod tests {
     fn test_compiler_pipeline() {
         // Create a temporary C file with a simple main function
         let mut source_file = NamedTempFile::new().unwrap();
-        write!(source_file, "int main() {{ return 0; }}").unwrap();
+        write!(source_file, "int main() {{ return 42; }}").unwrap();
         
         // Create an output path
         let output_file = NamedTempFile::new().unwrap();
@@ -78,44 +90,41 @@ mod tests {
             output_file.path().to_string_lossy().to_string()
         );
         
-        // Read the source file content for debugging
-        let source_content = fs::read_to_string(source_file.path()).unwrap();
-        println!("Source file content: {:?}", source_content);
-        
         let result = compiler.compile();
-        
-        // If compilation fails, print the tokens for debugging
-        if result.is_err() {
-            let mut lexer = Lexer::new(source_content);
-            let tokens = lexer.scan_tokens();
-            println!("Tokens: {:?}", tokens);
-        }
-        
         assert!(result.is_ok(), "Compilation failed: {:?}", result);
         
-        // Check that the output file was created
+        // Check that the output file was created and contains assembly
         let output_contents = fs::read_to_string(output_file.path()).unwrap();
-        assert!(!output_contents.is_empty(), "Output file is empty");
+        assert!(output_contents.contains("_main:"), "Output should contain main function");
+        assert!(output_contents.contains("mov $42, %rax"), "Output should contain return value");
     }
     
     #[test]
-    fn test_compiler_with_invalid_input() {
-        // Create a temporary C file without a main function
+    fn test_compiler_with_variables() {
+        // Test a program with variables and arithmetic
         let mut source_file = NamedTempFile::new().unwrap();
-        write!(source_file, "int add(int a, int b) {{ return a + b; }}").unwrap();
+        write!(source_file, "
+            int main() {{
+                int x = 10;
+                int y = 20;
+                return x + y;
+            }}
+        ").unwrap();
         
-        // Create an output path
         let output_file = NamedTempFile::new().unwrap();
         
-        // Create and run the compiler
         let compiler = Compiler::new(
             source_file.path().to_string_lossy().to_string(),
             output_file.path().to_string_lossy().to_string()
         );
         
         let result = compiler.compile();
-        assert!(result.is_err(), "Compilation should have failed but succeeded");
-        assert!(result.unwrap_err().contains("No main function found"), 
-                "Error message should mention the missing main function");
+        assert!(result.is_ok(), "Compilation failed: {:?}", result);
+        
+        // Check that the output file contains variable operations
+        let output_contents = fs::read_to_string(output_file.path()).unwrap();
+        assert!(output_contents.contains("_main:"), "Output should contain main function");
+        assert!(output_contents.contains("mov"), "Output should contain move instructions");
+        assert!(output_contents.contains("add"), "Output should contain add instruction");
     }
 }

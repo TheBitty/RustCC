@@ -93,7 +93,27 @@ impl Lexer {
                 }
             },
             '/' => {
-                if self.match_char('=') {
+                if self.match_char('/') {
+                    // A comment goes until the end of the line
+                    while self.peek() != '\n' && !self.is_at_end() {
+                        self.advance();
+                    }
+                } else if self.match_char('*') {
+                    // A block comment goes until */
+                    while !(self.peek() == '*' && self.peek_next() == '/') && !self.is_at_end() {
+                        if self.peek() == '\n' {
+                            self.line += 1;
+                            self.column = 0;
+                        }
+                        self.advance();
+                    }
+                    
+                    // Consume the */
+                    if !self.is_at_end() {
+                        self.advance(); // *
+                        self.advance(); // /
+                    }
+                } else if self.match_char('=') {
                     self.add_token(TokenType::SlashEqual)
                 } else {
                     self.add_token(TokenType::Slash)
@@ -195,6 +215,14 @@ impl Lexer {
             return '\0';
         }
         self.source.chars().nth(self.current).unwrap()
+    }
+
+    fn peek_next(&self) -> char {
+        if self.current + 1 >= self.source.len() {
+            '\0'
+        } else {
+            self.source.chars().nth(self.current + 1).unwrap()
+        }
     }
 
     fn add_token(&mut self, token_type: TokenType) {
