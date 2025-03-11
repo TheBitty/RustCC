@@ -8,15 +8,10 @@
             "type": "lldb",
             "request": "launch",
             "name": "Debug Rust Project",
-            "cargo": {
-                "args": ["build"],
-                "filter": {
-                    "name": "rustcc",
-                    "kind": "bin"
-                }
-            },
+            "preLaunchTask": "cargo build",
+            "program": "${workspaceFolder}/rustcc/target/debug/rustcc",
             "args": [],
-            "cwd": "${workspaceFolder}"
+            "cwd": "${workspaceFolder}/rustcc"
         }
     ]
 }
