@@ -1,4 +1,6 @@
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
+
 pub enum BinaryOp {
     Add,
     Subtract,

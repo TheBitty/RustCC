@@ -1,0 +1,12 @@
+/Users/leog/RustCC/rustcc/target/debug/deps/liblibc-309ab98f83c9b586.rmeta: /Users/leog/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libc-0.2.170/src/lib.rs /Users/leog/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libc-0.2.170/src/macros.rs /Users/leog/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libc-0.2.170/src/primitives.rs /Users/leog/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libc-0.2.170/src/unix/mod.rs /Users/leog/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libc-0.2.170/src/unix/bsd/mod.rs /Users/leog/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libc-0.2.170/src/unix/bsd/apple/mod.rs /Users/leog/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libc-0.2.170/src/unix/bsd/apple/b64/mod.rs /Users/leog/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libc-0.2.170/src/unix/bsd/apple/b64/aarch64/mod.rs
+
+/Users/leog/RustCC/rustcc/target/debug/deps/libc-309ab98f83c9b586.d: /Users/leog/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libc-0.2.170/src/lib.rs /Users/leog/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libc-0.2.170/src/macros.rs /Users/leog/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libc-0.2.170/src/primitives.rs /Users/leog/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libc-0.2.170/src/unix/mod.rs /Users/leog/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libc-0.2.170/src/unix/bsd/mod.rs /Users/leog/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libc-0.2.170/src/unix/bsd/apple/mod.rs /Users/leog/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libc-0.2.170/src/unix/bsd/apple/b64/mod.rs /Users/leog/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libc-0.2.170/src/unix/bsd/apple/b64/aarch64/mod.rs
+
+/Users/leog/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libc-0.2.170/src/lib.rs:
+/Users/leog/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libc-0.2.170/src/macros.rs:
+/Users/leog/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libc-0.2.170/src/primitives.rs:
+/Users/leog/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libc-0.2.170/src/unix/mod.rs:
+/Users/leog/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libc-0.2.170/src/unix/bsd/mod.rs:
+/Users/leog/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libc-0.2.170/src/unix/bsd/apple/mod.rs:
+/Users/leog/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libc-0.2.170/src/unix/bsd/apple/b64/mod.rs:
+/Users/leog/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libc-0.2.170/src/unix/bsd/apple/b64/aarch64/mod.rs:
