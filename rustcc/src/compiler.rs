@@ -3,13 +3,14 @@ use crate::codegen::CodeGenerator;
 use crate::config::Config;
 use crate::parser::lexer::Lexer;
 use crate::parser::Parser;
+use crate::preprocessor::{GccPreprocessor, Preprocessor, PreprocessorConfig};
 use crate::transforms::obfuscation::{
     ControlFlowObfuscator, DeadCodeInserter, StringEncryptor, VariableObfuscator,
 };
 use crate::transforms::optimization::{ConstantFolder, DeadCodeEliminator, FunctionInliner};
 use crate::transforms::Transform;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Main compiler struct that orchestrates the compilation process
 pub struct Compiler {
@@ -20,6 +21,8 @@ pub struct Compiler {
     language_dialect: LanguageDialect,
     config: Option<Config>,
     verbose: bool,
+    /// Configuration for the preprocessor
+    preprocessor_config: Option<PreprocessorConfig>,
 }
 
 /// Optimization levels for the compiler
@@ -44,9 +47,8 @@ pub enum ObfuscationLevel {
     Aggressive,
 }
 
-/// Language dialect to use for compilation
+/// Language dialect options
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)]
 pub enum LanguageDialect {
     /// C89 standard
     C89,
@@ -61,16 +63,17 @@ pub enum LanguageDialect {
 }
 
 impl Compiler {
-    /// Create a new compiler instance
+    /// Create a new compiler instance with default settings
     pub fn new(source_file: String, output_file: String) -> Self {
         Compiler {
             source_file,
             output_file,
             optimization_level: OptimizationLevel::None,
             obfuscation_level: ObfuscationLevel::None,
-            language_dialect: LanguageDialect::C99,
+            language_dialect: LanguageDialect::C11,
             config: None,
             verbose: false,
+            preprocessor_config: None,
         }
     }
 
@@ -87,21 +90,24 @@ impl Compiler {
     }
 
     /// Set the language dialect
-    #[allow(dead_code)]
     pub fn with_language_dialect(mut self, dialect: LanguageDialect) -> Self {
         self.language_dialect = dialect;
         self
     }
 
     /// Set the configuration
-    #[allow(dead_code)]
     pub fn with_config(mut self, config: Config) -> Self {
         self.config = Some(config);
         self
     }
 
-    /// Set the verbose flag
-    #[allow(dead_code)]
+    /// Set the preprocessor configuration
+    pub fn with_preprocessor_config(mut self, config: PreprocessorConfig) -> Self {
+        self.preprocessor_config = Some(config);
+        self
+    }
+
+    /// Enable or disable verbose output
     pub fn with_verbose(mut self, verbose: bool) -> Self {
         self.verbose = verbose;
         self
@@ -115,14 +121,81 @@ impl Compiler {
         Ok(self)
     }
 
+    /// Create a preprocessor configuration based on compiler settings
+    fn create_preprocessor_config(&self) -> PreprocessorConfig {
+        let mut config = match &self.preprocessor_config {
+            Some(config) => config.clone(),
+            None => PreprocessorConfig::default(),
+        };
+        
+        // If we have a compiler config, extract preprocessor settings
+        if let Some(compiler_config) = &self.config {
+            // Add include paths from compiler config if they exist
+            for path in &compiler_config.preprocessor.include_paths {
+                config.include_paths.push(PathBuf::from(path));
+            }
+            
+            // Add defines from compiler config
+            for (name, value) in &compiler_config.preprocessor.defines {
+                config.defines.insert(name.clone(), value.clone());
+            }
+            
+            // Additional flags
+            for flag in &compiler_config.preprocessor.additional_flags {
+                config.gcc_flags.push(flag.clone());
+            }
+            
+            // Keep comments setting
+            config.keep_comments = compiler_config.preprocessor.keep_comments;
+            
+            // GCC path
+            if let Some(path) = &compiler_config.preprocessor.gcc_path {
+                config.gcc_path = Some(PathBuf::from(path));
+            }
+        }
+        
+        // Set dialect-specific flags
+        match self.language_dialect {
+            LanguageDialect::C89 => config.gcc_flags.push("-std=c89".to_string()),
+            LanguageDialect::C99 => config.gcc_flags.push("-std=c99".to_string()),
+            LanguageDialect::C11 => config.gcc_flags.push("-std=c11".to_string()),
+            LanguageDialect::C17 => config.gcc_flags.push("-std=c17".to_string()),
+            LanguageDialect::CPlusPlus => config.gcc_flags.push("-std=c++11".to_string()),
+        }
+        
+        config
+    }
+
     /// Compiles the source file to the output file
     pub fn compile(&self) -> Result<(), String> {
-        // Read the source file
-        let source = fs::read_to_string(&self.source_file)
-            .map_err(|e| format!("Failed to read source file: {}", e))?;
-
         if self.verbose {
             println!("Compiling {} to {}", self.source_file, self.output_file);
+        }
+        
+        // Create preprocessor
+        let preprocessor_config = self.create_preprocessor_config();
+        let preprocessor = GccPreprocessor::with_config(preprocessor_config);
+        
+        // Check if GCC is available
+        if !preprocessor.is_available() {
+            return Err("GCC preprocessor is not available. Please install GCC or specify a valid path.".to_string());
+        }
+        
+        // Preprocess the source file
+        let source_path = Path::new(&self.source_file);
+        
+        if self.verbose {
+            println!("Preprocessing source file...");
+        }
+        
+        let preprocessed_path = preprocessor.preprocess_file(source_path)?;
+        
+        // Read the preprocessed file
+        let source = fs::read_to_string(&preprocessed_path)
+            .map_err(|e| format!("Failed to read preprocessed file: {}", e))?;
+            
+        if self.verbose {
+            println!("Preprocessing completed");
         }
 
         // Lexical analysis

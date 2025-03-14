@@ -3,6 +3,7 @@ mod codegen;
 mod compiler;
 mod config;
 mod parser;
+mod preprocessor;
 mod transforms;
 
 use crate::compiler::{Compiler, ObfuscationLevel, OptimizationLevel};

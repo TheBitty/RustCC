@@ -186,7 +186,7 @@ impl Parser {
 
         Ok(expr)
     }
-
+    
     /// Parse a shift expression
     fn parse_shift(&mut self) -> Result<Expression> {
         let mut expr = self.parse_term()?;
@@ -474,4 +474,4 @@ impl Parser {
             format!("Unexpected token '{}' in expression", self.peek().lexeme),
         ))
     }
-}
+} 

@@ -1,7 +1,9 @@
 use crate::compiler::{ObfuscationLevel, OptimizationLevel};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use std::path::PathBuf;
 
 /// Configuration for the RustCC compiler
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -17,6 +19,10 @@ pub struct Config {
     /// Output configuration
     #[serde(default)]
     pub output: OutputConfig,
+    
+    /// Preprocessor configuration
+    #[serde(default)]
+    pub preprocessor: PreprocessorConfig,
 }
 
 /// Configuration for optimization
@@ -79,6 +85,30 @@ pub struct OutputConfig {
     pub debug_info: bool,
 }
 
+/// Configuration for preprocessor
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PreprocessorConfig {
+    /// Include paths for preprocessing
+    #[serde(default)]
+    pub include_paths: Vec<String>,
+    
+    /// Macro definitions
+    #[serde(default)]
+    pub defines: HashMap<String, Option<String>>,
+    
+    /// Whether to keep comments in preprocessor output
+    #[serde(default = "default_false")]
+    pub keep_comments: bool,
+    
+    /// Additional preprocessor flags
+    #[serde(default)]
+    pub additional_flags: Vec<String>,
+    
+    /// Path to GCC executable (if not in PATH)
+    #[serde(default)]
+    pub gcc_path: Option<String>,
+}
+
 impl Config {
     /// Load configuration from a file
     #[allow(dead_code)]
@@ -116,6 +146,13 @@ impl Config {
             _ => ObfuscationLevel::None,
         }
     }
+
+    /// Get the include paths from the preprocessor configuration
+    pub fn get_include_paths(&self) -> Vec<PathBuf> {
+        self.preprocessor.include_paths.iter()
+            .map(|path| PathBuf::from(path))
+            .collect()
+    }
 }
 
 impl Default for OptimizationConfig {
@@ -147,6 +184,18 @@ impl Default for OutputConfig {
         OutputConfig {
             format: default_output_format(),
             debug_info: default_false(),
+        }
+    }
+}
+
+impl Default for PreprocessorConfig {
+    fn default() -> Self {
+        PreprocessorConfig {
+            include_paths: Vec::new(),
+            defines: HashMap::new(),
+            keep_comments: default_false(),
+            additional_flags: Vec::new(),
+            gcc_path: None,
         }
     }
 }
