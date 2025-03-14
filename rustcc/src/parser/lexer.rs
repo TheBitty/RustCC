@@ -535,11 +535,11 @@ impl Lexer {
     }
 
     fn is_digit(&self, c: char) -> bool {
-        ('0'..='9').contains(&c)
+        c.is_ascii_digit()
     }
 
     fn is_alpha(&self, c: char) -> bool {
-        ('a'..='z').contains(&c) || ('A'..='Z').contains(&c) || c == '_'
+        c.is_ascii_lowercase() || c.is_ascii_uppercase() || c == '_'
     }
 
     fn is_alphanumeric(&self, c: char) -> bool {
@@ -547,11 +547,11 @@ impl Lexer {
     }
 
     fn is_hex_digit(&self, c: char) -> bool {
-        self.is_digit(c) || ('a'..='f').contains(&c) || ('A'..='F').contains(&c)
+        c.is_ascii_digit() || c.is_ascii_hexdigit()
     }
 
     fn is_octal_digit(&self, c: char) -> bool {
-        ('0'..='7').contains(&c)
+        c.is_ascii_digit() && c <= '7'
     }
 
     fn number(&mut self) {
