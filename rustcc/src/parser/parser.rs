@@ -145,7 +145,7 @@ impl Parser {
             }
             i += 1;
         }
-        
+
         // Reset current position after preprocessing
         self.current = 0;
         Ok(())
