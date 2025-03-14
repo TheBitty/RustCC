@@ -69,6 +69,6 @@ pub enum TokenType {
     Dot, // ; , .
 
     // Special tokens
-    EOF,
+    Eof,
     Error,
 }

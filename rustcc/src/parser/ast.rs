@@ -94,6 +94,7 @@ pub enum Statement {
         data_type: Option<Type>,
         initializer: Expression,
     },
+    #[allow(clippy::enum_variant_names)]
     ExpressionStatement(Expression),
     Block(Vec<Statement>),
     If {

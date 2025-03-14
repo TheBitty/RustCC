@@ -23,7 +23,7 @@ mod tests {
         // Should contain 'int' token and EOF token
         assert_eq!(tokens.len(), 2);
         assert_eq!(tokens[0].token_type, TokenType::Int);
-        assert_eq!(tokens[1].token_type, TokenType::EOF);
+        assert_eq!(tokens[1].token_type, TokenType::Eof);
     }
 
     #[test]
@@ -38,7 +38,7 @@ mod tests {
             TokenType::LeftParen,
             TokenType::RightParen,
             TokenType::LeftBrace,
-            TokenType::EOF,
+            TokenType::Eof,
         ];
 
         assert_eq!(tokens.len(), expected_types.len());
@@ -69,7 +69,7 @@ mod tests {
             TokenType::Plus, TokenType::Minus, TokenType::Star, TokenType::Slash, 
             TokenType::Percent, TokenType::Equal, TokenType::EqualEqual, TokenType::BangEqual,
             TokenType::Less, TokenType::LessEqual, TokenType::Greater, TokenType::GreaterEqual,
-            TokenType::And, TokenType::Or, TokenType::Bang, TokenType::EOF,
+            TokenType::And, TokenType::Or, TokenType::Bang, TokenType::Eof,
         ];
         
         assert_eq!(tokens.len(), expected_types.len());
@@ -86,7 +86,7 @@ mod tests {
         
         let expected_types = vec![
             TokenType::PlusEqual, TokenType::MinusEqual, TokenType::StarEqual, 
-            TokenType::SlashEqual, TokenType::PercentEqual, TokenType::EOF,
+            TokenType::SlashEqual, TokenType::PercentEqual, TokenType::Eof,
         ];
         
         assert_eq!(tokens.len(), expected_types.len());
@@ -104,7 +104,7 @@ mod tests {
         let expected_types = vec![
             TokenType::Int, TokenType::Char, TokenType::Void, TokenType::If, 
             TokenType::Else, TokenType::While, TokenType::For, TokenType::Return,
-            TokenType::Break, TokenType::Continue, TokenType::Struct, TokenType::EOF,
+            TokenType::Break, TokenType::Continue, TokenType::Struct, TokenType::Eof,
         ];
         
         assert_eq!(tokens.len(), expected_types.len());

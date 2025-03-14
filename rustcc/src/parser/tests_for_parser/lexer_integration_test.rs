@@ -23,7 +23,7 @@ fn test_complete_program_lexing() {
         TokenType::IntegerLiteral, // "42"
         TokenType::Semicolon,
         TokenType::RightBrace,
-        TokenType::EOF,
+        TokenType::Eof,
     ];
 
     assert_eq!(tokens.len(), expected_types.len());
@@ -67,7 +67,7 @@ fn test_function_with_parameters() {
         TokenType::Identifier, // "b"
         TokenType::Semicolon,
         TokenType::RightBrace,
-        TokenType::EOF,
+        TokenType::Eof,
     ];
     
     assert_eq!(tokens.len(), expected_types.len());
@@ -106,7 +106,7 @@ fn test_if_else_statement() {
         TokenType::Identifier, // "x"
         TokenType::Semicolon,
         TokenType::RightBrace,
-        TokenType::EOF,
+        TokenType::Eof,
     ];
     
     assert_eq!(tokens.len(), expected_types.len());
@@ -146,7 +146,7 @@ fn test_while_loop() {
         TokenType::IntegerLiteral, // "1"
         TokenType::Semicolon,
         TokenType::RightBrace,
-        TokenType::EOF,
+        TokenType::Eof,
     ];
     
     assert_eq!(tokens.len(), expected_types.len());
@@ -177,7 +177,7 @@ fn test_complex_expression() {
         TokenType::Identifier, // "e"
         TokenType::RightParen,
         TokenType::Semicolon,
-        TokenType::EOF,
+        TokenType::Eof,
     ];
     
     assert_eq!(tokens.len(), expected_types.len());

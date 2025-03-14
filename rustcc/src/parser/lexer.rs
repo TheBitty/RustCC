@@ -45,7 +45,7 @@ impl Lexer {
         }
 
         self.tokens.push(Token {
-            token_type: TokenType::EOF,
+            token_type: TokenType::Eof,
             lexeme: String::new(),
             line: self.line,
             column: self.column,
