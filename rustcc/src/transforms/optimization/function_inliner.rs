@@ -784,10 +784,11 @@ impl FunctionInliner {
         }
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn inline_function_calls_in_expr(
         &self,
         expr: &mut Expression,
-        inline_candidates: &[&crate::parser::ast::Function],
+        _inline_candidates: &[&crate::parser::ast::Function],
     ) {
         // Fix the unused import warning
         use crate::parser::ast::Expression;
@@ -796,46 +797,46 @@ impl FunctionInliner {
             Expression::FunctionCall { name: _, arguments } => {
                 // Inline arguments first (depth-first)
                 for arg in arguments {
-                    self.inline_function_calls_in_expr(arg, inline_candidates);
+                    self.inline_function_calls_in_expr(arg, _inline_candidates);
                 }
 
                 // We don't actually inline the function here, that's done in the statement pass
                 // This is just to process nested calls in the arguments
             }
             Expression::BinaryOperation { left, right, .. } => {
-                self.inline_function_calls_in_expr(left, inline_candidates);
-                self.inline_function_calls_in_expr(right, inline_candidates);
+                self.inline_function_calls_in_expr(left, _inline_candidates);
+                self.inline_function_calls_in_expr(right, _inline_candidates);
             }
             Expression::UnaryOperation { operand, .. } => {
-                self.inline_function_calls_in_expr(operand, inline_candidates);
+                self.inline_function_calls_in_expr(operand, _inline_candidates);
             }
             Expression::Assignment { target, value } => {
-                self.inline_function_calls_in_expr(target, inline_candidates);
-                self.inline_function_calls_in_expr(value, inline_candidates);
+                self.inline_function_calls_in_expr(target, _inline_candidates);
+                self.inline_function_calls_in_expr(value, _inline_candidates);
             }
             Expression::TernaryIf {
                 condition,
                 then_expr,
                 else_expr,
             } => {
-                self.inline_function_calls_in_expr(condition, inline_candidates);
-                self.inline_function_calls_in_expr(then_expr, inline_candidates);
-                self.inline_function_calls_in_expr(else_expr, inline_candidates);
+                self.inline_function_calls_in_expr(condition, _inline_candidates);
+                self.inline_function_calls_in_expr(then_expr, _inline_candidates);
+                self.inline_function_calls_in_expr(else_expr, _inline_candidates);
             }
             Expression::Cast {
                 expr: inner_expr, ..
             } => {
-                self.inline_function_calls_in_expr(inner_expr, inline_candidates);
+                self.inline_function_calls_in_expr(inner_expr, _inline_candidates);
             }
             Expression::ArrayAccess { array, index } => {
-                self.inline_function_calls_in_expr(array, inline_candidates);
-                self.inline_function_calls_in_expr(index, inline_candidates);
+                self.inline_function_calls_in_expr(array, _inline_candidates);
+                self.inline_function_calls_in_expr(index, _inline_candidates);
             }
             Expression::StructFieldAccess { object, .. } => {
-                self.inline_function_calls_in_expr(object, inline_candidates);
+                self.inline_function_calls_in_expr(object, _inline_candidates);
             }
             Expression::PointerFieldAccess { pointer, .. } => {
-                self.inline_function_calls_in_expr(pointer, inline_candidates);
+                self.inline_function_calls_in_expr(pointer, _inline_candidates);
             }
             _ => {}
         }
