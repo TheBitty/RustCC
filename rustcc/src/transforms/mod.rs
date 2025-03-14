@@ -1,8 +1,13 @@
-pub mod api;
-pub mod control_flow;
 pub mod obfuscation;
 pub mod optimization;
-pub mod string;
+
+// Re-export obfuscation transforms for convenient access
+pub use obfuscation::{
+    ControlFlowObfuscator, 
+    DeadCodeInserter, 
+    StringEncryptor, 
+    VariableObfuscator
+};
 
 use crate::parser::ast::Program;
 
