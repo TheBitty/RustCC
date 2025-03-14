@@ -1,4 +1,4 @@
-use super::ast::{Program, Function, Statement, Expression, BinaryOp};
+use super::ast::{Program, Function, Statement, Expression, BinaryOp, Type};
 use super::token::{Token, TokenType};
 
 pub struct Parser {
@@ -25,15 +25,24 @@ impl Parser {
             }
         }
 
-        Ok(Program { functions })
+        // No struct declarations for now
+        let structs = Vec::new();
+
+        Ok(Program { functions, structs })
     }
 
     fn parse_function(&mut self) -> Result<Function, String> {
         // Already consumed 'int'
+        let return_type = Type::Int; // Default to int for now
+        
         let name_token = self.consume(TokenType::Identifier, "Expected function name")?;
         let name = name_token.lexeme.clone();
         
         self.consume(TokenType::LeftParen, "Expected '(' after function name")?;
+        
+        // Parse parameters (currently we don't support parameters, just an empty list)
+        let parameters = Vec::new();
+        
         self.consume(TokenType::RightParen, "Expected ')' after parameters")?;
         self.consume(TokenType::LeftBrace, "Expected '{' before function body")?;
 
@@ -46,6 +55,8 @@ impl Parser {
 
         Ok(Function {
             name,
+            return_type,
+            parameters,
             body,
         })
     }
@@ -65,6 +76,7 @@ impl Parser {
             
             Ok(Statement::VariableDeclaration {
                 name,
+                data_type: Some(Type::Int), // Default to int for now
                 initializer,
             })
         } else {

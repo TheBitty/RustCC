@@ -2,12 +2,29 @@ use crate::parser::lexer::Lexer;
 use crate::parser::parser::Parser;
 use crate::analyzer::SemanticAnalyzer;
 use crate::codegen::CodeGenerator;
+use crate::transforms::{Transform, obfuscation, optimization};
 use std::fs;
 use std::path::Path;
 
 pub struct Compiler {
     source_file: String,
     output_file: String,
+    optimization_level: OptimizationLevel,
+    obfuscation_level: ObfuscationLevel,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OptimizationLevel {
+    None,
+    Basic,
+    Full,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObfuscationLevel {
+    None,
+    Basic,
+    Aggressive,
 }
 
 impl Compiler {
@@ -15,7 +32,19 @@ impl Compiler {
         Compiler {
             source_file,
             output_file,
+            optimization_level: OptimizationLevel::None,
+            obfuscation_level: ObfuscationLevel::None,
         }
+    }
+    
+    pub fn with_optimization(mut self, level: OptimizationLevel) -> Self {
+        self.optimization_level = level;
+        self
+    }
+    
+    pub fn with_obfuscation(mut self, level: ObfuscationLevel) -> Self {
+        self.obfuscation_level = level;
+        self
     }
     
     pub fn compile(&self) -> Result<(), String> {
@@ -37,7 +66,7 @@ impl Compiler {
         
         // Step 2: Parsing
         let mut parser = Parser::new(tokens.clone());
-        let ast = match parser.parse() {
+        let mut ast = match parser.parse() {
             Ok(ast) => ast,
             Err(e) => {
                 println!("Parsing error: {}", e);
@@ -54,7 +83,10 @@ impl Compiler {
             return Err(e);
         }
         
-        // Step 4: Code Generation
+        // Step 4: Apply transformations
+        self.apply_transformations(&mut ast)?;
+        
+        // Step 5: Code Generation
         let mut generator = CodeGenerator::new();
         let assembly = generator.generate(&ast);
         
@@ -66,6 +98,43 @@ impl Compiler {
             Ok(_) => Ok(()),
             Err(e) => Err(format!("Failed to write output file: {}", e)),
         }
+    }
+    
+    fn apply_transformations(&self, ast: &mut crate::parser::ast::Program) -> Result<(), String> {
+        let mut transformations: Vec<Box<dyn Transform>> = Vec::new();
+        
+        // Add optimizations based on optimization level
+        match self.optimization_level {
+            OptimizationLevel::None => {},
+            OptimizationLevel::Basic | OptimizationLevel::Full => {
+                transformations.push(Box::new(optimization::ConstantFolder {}));
+                
+                if self.optimization_level == OptimizationLevel::Full {
+                    transformations.push(Box::new(optimization::DeadCodeEliminator {}));
+                }
+            }
+        }
+        
+        // Add obfuscations based on obfuscation level
+        match self.obfuscation_level {
+            ObfuscationLevel::None => {},
+            ObfuscationLevel::Basic => {
+                transformations.push(Box::new(obfuscation::VariableObfuscator {}));
+            },
+            ObfuscationLevel::Aggressive => {
+                transformations.push(Box::new(obfuscation::VariableObfuscator {}));
+                transformations.push(Box::new(obfuscation::ControlFlowObfuscator {}));
+                transformations.push(Box::new(obfuscation::DeadCodeInserter {}));
+            }
+        }
+        
+        // Apply all transformations
+        for transform in transformations {
+            println!("Applying transformation: {}", transform.name());
+            transform.apply(ast)?;
+        }
+        
+        Ok(())
     }
 }
 

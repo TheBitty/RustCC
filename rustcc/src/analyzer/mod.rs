@@ -51,7 +51,7 @@ impl SemanticAnalyzer {
     fn analyze_statement(&mut self, statement: &Statement) -> Result<(), String> {
         match statement {
             Statement::Return(expr) => self.analyze_expression(expr),
-            Statement::VariableDeclaration { name, initializer } => {
+            Statement::VariableDeclaration { name, initializer, data_type: _ } => {
                 // Check if variable is already defined
                 if self.variables.contains_key(name) {
                     return Err(format!("Variable '{}' is already defined", name));
@@ -64,15 +64,68 @@ impl SemanticAnalyzer {
                 self.variables.insert(name.clone(), true);
                 Ok(())
             }
+            Statement::ExpressionStatement(expr) => self.analyze_expression(expr),
+            Statement::Block(statements) => {
+                for stmt in statements {
+                    self.analyze_statement(stmt)?;
+                }
+                Ok(())
+            }
+            Statement::If { condition, then_block, else_block } => {
+                self.analyze_expression(condition)?;
+                self.analyze_statement(then_block)?;
+                if let Some(else_stmt) = else_block {
+                    self.analyze_statement(else_stmt)?;
+                }
+                Ok(())
+            }
+            Statement::While { condition, body } => {
+                self.analyze_expression(condition)?;
+                self.analyze_statement(body)
+            }
+            Statement::For { initializer, condition, increment, body } => {
+                if let Some(init) = initializer {
+                    self.analyze_statement(init)?;
+                }
+                if let Some(cond) = condition {
+                    self.analyze_expression(cond)?;
+                }
+                if let Some(inc) = increment {
+                    self.analyze_expression(inc)?;
+                }
+                self.analyze_statement(body)
+            }
+            Statement::DoWhile { body, condition } => {
+                self.analyze_statement(body)?;
+                self.analyze_expression(condition)
+            }
+            Statement::Break | Statement::Continue => Ok(()),
+            Statement::Switch { expression, cases } => {
+                self.analyze_expression(expression)?;
+                for case in cases {
+                    if let Some(value) = &case.value {
+                        self.analyze_expression(value)?;
+                    }
+                    for stmt in &case.statements {
+                        self.analyze_statement(stmt)?;
+                    }
+                }
+                Ok(())
+            }
         }
     }
 
     fn analyze_expression(&self, expr: &Expression) -> Result<(), String> {
         match expr {
             Expression::IntegerLiteral(_) => Ok(()),
+            Expression::StringLiteral(_) => Ok(()),
+            Expression::CharLiteral(_) => Ok(()),
             Expression::BinaryOperation { left, right, .. } => {
                 self.analyze_expression(left)?;
                 self.analyze_expression(right)
+            }
+            Expression::UnaryOperation { operand, .. } => {
+                self.analyze_expression(operand)
             }
             Expression::Variable(name) => {
                 if !self.variables.contains_key(name) {
@@ -80,6 +133,35 @@ impl SemanticAnalyzer {
                 } else {
                     Ok(())
                 }
+            }
+            Expression::FunctionCall { arguments, .. } => {
+                for arg in arguments {
+                    self.analyze_expression(arg)?;
+                }
+                Ok(())
+            }
+            Expression::Assignment { target, value } => {
+                self.analyze_expression(target)?;
+                self.analyze_expression(value)
+            }
+            Expression::TernaryIf { condition, then_expr, else_expr } => {
+                self.analyze_expression(condition)?;
+                self.analyze_expression(then_expr)?;
+                self.analyze_expression(else_expr)
+            }
+            Expression::Cast { expr, .. } => {
+                self.analyze_expression(expr)
+            }
+            Expression::SizeOf { .. } => Ok(()),
+            Expression::ArrayAccess { array, index } => {
+                self.analyze_expression(array)?;
+                self.analyze_expression(index)
+            }
+            Expression::StructFieldAccess { object, .. } => {
+                self.analyze_expression(object)
+            }
+            Expression::PointerFieldAccess { pointer, .. } => {
+                self.analyze_expression(pointer)
             }
         }
     }

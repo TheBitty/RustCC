@@ -1,122 +1,50 @@
-use std::collections::HashMap;
-use crate::parser::ast::{Program, Function, Statement, Expression, BinaryOp};
+pub mod x86_64;
+#[cfg(feature = "llvm-backend")]
+pub mod llvm;
+
+use crate::parser::ast::Program;
 
 pub struct CodeGenerator {
-    output: String,
-    variables: HashMap<String, i32>, // Maps variable names to stack offsets
-    current_stack_offset: i32,
+    backend: Backend,
+}
+
+#[allow(dead_code)]
+pub enum Backend {
+    X86_64,
+    #[cfg(feature = "llvm-backend")]
+    LLVM,
+    #[cfg(not(feature = "llvm-backend"))]
+    LLVMUnavailable,
 }
 
 impl CodeGenerator {
     pub fn new() -> Self {
         CodeGenerator {
-            output: String::new(),
-            variables: HashMap::new(),
-            current_stack_offset: 0,
+            backend: Backend::X86_64, // Default to x86_64 for backward compatibility
         }
     }
-
+    
+    #[allow(dead_code)]
+    pub fn with_backend(backend: Backend) -> Self {
+        CodeGenerator { backend }
+    }
+    
     pub fn generate(&mut self, program: &Program) -> String {
-        self.output.clear();
-        self.variables.clear();
-        self.current_stack_offset = 0;
-
-        // Add necessary assembly directives and headers
-        self.emit_line(".section __TEXT,__text,regular,pure_instructions");
-        self.emit_line(".globl _main");
-        self.emit_line(".p2align 4, 0x90");
-
-        // Generate code for each function
-        for function in &program.functions {
-            self.generate_function(function);
-        }
-
-        self.output.clone()
-    }
-
-    fn generate_function(&mut self, function: &Function) {
-        self.emit_line(&format!("_{}: ", function.name));
-        
-        // Function prologue
-        self.emit_line("    push %rbp");
-        self.emit_line("    mov %rsp, %rbp");
-        
-        // Reserve stack space for local variables
-        let stack_size = (function.body.len() * 8) as i32;  // 8 bytes per variable
-        if stack_size > 0 {
-            self.emit_line(&format!("    sub ${}, %rsp", stack_size));
-        }
-
-        // Generate code for function body
-        for statement in &function.body {
-            self.generate_statement(statement);
-        }
-
-        // Function epilogue (if not already returned)
-        self.emit_line("    mov %rbp, %rsp");
-        self.emit_line("    pop %rbp");
-        self.emit_line("    ret");
-    }
-
-    fn generate_statement(&mut self, statement: &Statement) {
-        match statement {
-            Statement::Return(expr) => {
-                // Evaluate expression and put result in %rax
-                self.generate_expression(expr);
-                self.emit_line("    mov %rbp, %rsp");
-                self.emit_line("    pop %rbp");
-                self.emit_line("    ret");
+        match self.backend {
+            Backend::X86_64 => {
+                let mut generator = x86_64::X86_64Generator::new();
+                generator.generate(program)
             }
-            Statement::VariableDeclaration { name, initializer } => {
-                // Evaluate initializer
-                self.generate_expression(initializer);
-                
-                // Store result in stack
-                self.current_stack_offset -= 8;
-                self.variables.insert(name.clone(), self.current_stack_offset);
-                self.emit_line(&format!("    mov %rax, {}(%rbp)", self.current_stack_offset));
+            #[cfg(feature = "llvm-backend")]
+            Backend::LLVM => {
+                // LLVM requires context, which we can't easily create here
+                // So we'll just return a message for now
+                "LLVM IR generation is available through the LLVMCodeGenerator directly.".to_string()
+            }
+            #[cfg(not(feature = "llvm-backend"))]
+            Backend::LLVMUnavailable => {
+                "LLVM backend is not available. Compile with the 'llvm-backend' feature to enable it.".to_string()
             }
         }
-    }
-
-    fn generate_expression(&mut self, expr: &Expression) {
-        match expr {
-            Expression::IntegerLiteral(value) => {
-                self.emit_line(&format!("    mov ${}, %rax", value));
-            }
-            Expression::BinaryOperation { left, operator, right } => {
-                // Generate code for right operand first
-                self.generate_expression(right);
-                // Save right operand
-                self.emit_line("    push %rax");
-                
-                // Generate code for left operand
-                self.generate_expression(left);
-                
-                // Restore right operand into %rcx
-                self.emit_line("    pop %rcx");
-                
-                // Perform operation
-                match operator {
-                    BinaryOp::Add => self.emit_line("    add %rcx, %rax"),
-                    BinaryOp::Subtract => self.emit_line("    sub %rcx, %rax"),
-                    BinaryOp::Multiply => self.emit_line("    imul %rcx, %rax"),
-                    BinaryOp::Divide => {
-                        self.emit_line("    cqo");  // Sign extend %rax into %rdx
-                        self.emit_line("    idiv %rcx");
-                    }
-                }
-            }
-            Expression::Variable(name) => {
-                if let Some(offset) = self.variables.get(name) {
-                    self.emit_line(&format!("    mov {}(%rbp), %rax", offset));
-                }
-            }
-        }
-    }
-
-    fn emit_line(&mut self, line: &str) {
-        self.output.push_str(line);
-        self.output.push('\n');
     }
 } 
