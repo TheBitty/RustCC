@@ -2,7 +2,7 @@ use crate::analyzer::SemanticAnalyzer;
 use crate::codegen::CodeGenerator;
 use crate::config::Config;
 use crate::parser::lexer::Lexer;
-use crate::parser::parser::Parser;
+use crate::parser::Parser;
 use crate::transforms::obfuscation::{
     ControlFlowObfuscator, DeadCodeInserter, StringEncryptor, VariableObfuscator,
 };

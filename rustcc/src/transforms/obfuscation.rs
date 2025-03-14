@@ -61,6 +61,7 @@ impl VariableObfuscator {
                 name,
                 initializer,
                 data_type: _,
+                is_global: _,
             } => {
                 if let Some(new_name) = var_map.get(name) {
                     *name = new_name.clone();
@@ -72,6 +73,7 @@ impl VariableObfuscator {
                 initializer,
                 data_type: _,
                 size: _,
+                is_global: _,
             } => {
                 if let Some(new_name) = var_map.get(name) {
                     *name = new_name.clone();
@@ -400,6 +402,7 @@ impl ControlFlowObfuscator {
                 name: junk_var_name.clone(),
                 data_type: Some(Type::Int),
                 initializer: Expression::IntegerLiteral(rng.gen_range(1..1000)),
+                is_global: false,
             };
 
             let junk_block = Statement::Block(vec![junk_declaration]);
@@ -558,6 +561,7 @@ impl DeadCodeInserter {
                 name: var_name.clone(),
                 data_type: Some(Type::Int),
                 initializer,
+                is_global: false,
             };
 
             statements.push(decl);
@@ -729,6 +733,7 @@ impl DeadCodeInserter {
                         name: format!("_loop_counter_{}", rng.gen::<u32>()),
                         data_type: Some(Type::Int),
                         initializer: Expression::IntegerLiteral(0),
+                        is_global: false,
                     };
 
                     statements.push(init_stmt);
@@ -742,6 +747,7 @@ impl DeadCodeInserter {
                         name: loop_var.clone(),
                         data_type: Some(Type::Int),
                         initializer: Expression::IntegerLiteral(0),
+                        is_global: false,
                     };
 
                     // Loop condition
@@ -795,6 +801,7 @@ impl DeadCodeInserter {
                     name: var_name,
                     data_type: Some(Type::Int),
                     initializer: expr,
+                    is_global: false,
                 };
 
                 statements.push(stmt);
@@ -926,10 +933,12 @@ impl StringEncryptor {
                 name,
                 data_type,
                 initializer,
+                is_global,
             } => Statement::VariableDeclaration {
                 name,
                 data_type,
                 initializer: self.encrypt_strings_in_expression(initializer, rng),
+                is_global,
             },
             Statement::ExpressionStatement(expr) => {
                 Statement::ExpressionStatement(self.encrypt_strings_in_expression(expr, rng))

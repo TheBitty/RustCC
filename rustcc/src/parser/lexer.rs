@@ -32,6 +32,7 @@ impl Lexer {
         keywords.insert("default".to_string(), TokenType::Default);
         keywords.insert("do".to_string(), TokenType::Do);
         keywords.insert("sizeof".to_string(), TokenType::Sizeof);
+        keywords.insert("const".to_string(), TokenType::Const);
 
         // Preprocessor keywords
         keywords.insert("include".to_string(), TokenType::PPInclude);

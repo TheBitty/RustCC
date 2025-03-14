@@ -632,6 +632,7 @@ impl FunctionInliner {
                                 name: format!("{}{}", prefix, param.name),
                                 data_type: Some(param.data_type.clone()),
                                 initializer: arg_expr,
+                                is_global: false,
                             };
 
                             inlined_statements.push(param_var);
@@ -650,6 +651,7 @@ impl FunctionInliner {
                                 name: return_var_name.clone(),
                                 data_type: Some(function_to_inline.return_type.clone()),
                                 initializer: Expression::IntegerLiteral(0), // Default initialization
+                                is_global: false,
                             });
                         }
 

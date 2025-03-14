@@ -7,7 +7,7 @@ pub struct Token {
     pub literal: Option<String>, // Optional literal value for constants/strings
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 #[allow(dead_code)]
 pub enum TokenType {
     // Keywords
@@ -27,6 +27,7 @@ pub enum TokenType {
     Default,
     Do,
     Sizeof,
+    Const,  // Added for const qualifier
 
     // Identifiers and literals
     Identifier,

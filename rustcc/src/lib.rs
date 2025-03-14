@@ -1,10 +1,4 @@
-pub mod parser {
-    pub mod ast;
-    pub mod lexer;
-    #[allow(clippy::module_inception)]
-    pub mod parser;
-    pub mod token;
-}
+pub mod parser;
 pub mod analyzer;
 pub mod codegen;
 pub mod compiler;

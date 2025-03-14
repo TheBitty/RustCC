@@ -71,6 +71,7 @@ impl X86_64Generator {
                 name,
                 initializer,
                 data_type: _,
+                is_global: _,
             } => {
                 // Evaluate initializer
                 self.generate_expression(initializer);

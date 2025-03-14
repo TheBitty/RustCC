@@ -31,18 +31,30 @@ impl SemanticAnalyzer {
     fn analyze_function(&mut self, function: &Function) -> Result<(), String> {
         self.variables.clear(); // Clear variables for new function scope
 
+        // Register function parameters in the variables scope
+        for param in &function.parameters {
+            self.variables.insert(param.name.clone(), true);
+        }
+
+        // For external function declarations (without a body), no need to check for return statement
+        // External functions are those without a body (empty body)
+        if function.body.is_empty() {
+            return Ok(());
+        }
+
         // Analyze each statement in the function body
         for statement in &function.body {
             self.analyze_statement(statement)?;
         }
 
-        // Check that function has a return statement
+        // Check that function has a return statement if it's not void
+        let is_void = matches!(function.return_type, crate::parser::ast::Type::Void);
         let has_return = function
             .body
             .iter()
             .any(|stmt| matches!(stmt, Statement::Return(_)));
 
-        if !has_return {
+        if !has_return && !is_void {
             return Err(format!(
                 "Function '{}' must have a return statement",
                 function.name
@@ -59,6 +71,7 @@ impl SemanticAnalyzer {
                 name,
                 initializer,
                 data_type: _,
+                is_global: _,
             } => {
                 // Check if variable is already defined
                 if self.variables.contains_key(name) {
@@ -77,6 +90,7 @@ impl SemanticAnalyzer {
                 initializer,
                 size,
                 data_type: _,
+                is_global: _,
             } => {
                 // Check if variable is already defined
                 if self.variables.contains_key(name) {

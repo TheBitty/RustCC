@@ -106,12 +106,14 @@ pub enum Statement {
         name: String,
         data_type: Option<Type>,
         initializer: Expression,
+        is_global: bool,
     },
     ArrayDeclaration {
         name: String,
         data_type: Option<Type>,
         size: Option<Expression>,
         initializer: Expression,
+        is_global: bool,
     },
     #[allow(clippy::enum_variant_names)]
     ExpressionStatement(Expression),
@@ -158,6 +160,7 @@ pub enum Type {
     Pointer(Box<Type>),
     Array(Box<Type>, Option<usize>),
     Struct(String),
+    Const(Box<Type>),
     Function {
         return_type: Box<Type>,
         parameters: Vec<(String, Type)>,
@@ -192,6 +195,8 @@ pub struct Function {
     pub return_type: Type,
     pub parameters: Vec<FunctionParameter>,
     pub body: Vec<Statement>,
+    pub is_variadic: bool,
+    pub is_external: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -200,4 +205,5 @@ pub struct Program {
     pub functions: Vec<Function>,
     pub structs: Vec<Struct>,
     pub includes: Vec<String>, // List of include directives for C code
+    pub globals: Vec<Statement>, // Global variable declarations
 }
