@@ -247,19 +247,11 @@ impl FunctionInliner {
                 self.find_called_functions_in_expr(initializer, called_functions);
             }
             Statement::ArrayDeclaration {
-                initializer,
-                size,
-                ..
+                initializer, size, ..
             } => {
-                self.find_called_functions_in_expr(
-                    initializer,
-                    called_functions,
-                );
+                self.find_called_functions_in_expr(initializer, called_functions);
                 if let Some(size_expr) = size {
-                    self.find_called_functions_in_expr(
-                        size_expr,
-                        called_functions,
-                    );
+                    self.find_called_functions_in_expr(size_expr, called_functions);
                 }
             }
             Statement::Switch { expression, cases } => {
@@ -417,19 +409,11 @@ impl FunctionInliner {
                     self.inline_function_calls_in_expr(initializer, inline_candidates);
                 }
                 Statement::ArrayDeclaration {
-                    initializer,
-                    size,
-                    ..
+                    initializer, size, ..
                 } => {
-                    self.inline_function_calls_in_expr(
-                        initializer,
-                        inline_candidates,
-                    );
+                    self.inline_function_calls_in_expr(initializer, inline_candidates);
                     if let Some(size_expr) = size {
-                        self.inline_function_calls_in_expr(
-                            size_expr,
-                            inline_candidates,
-                        );
+                        self.inline_function_calls_in_expr(size_expr, inline_candidates);
                     }
                 }
                 Statement::Block(block_statements) => {
@@ -459,12 +443,13 @@ impl FunctionInliner {
                                     self.inline_function_calls_in_expr(expr, inline_candidates);
                                 }
                                 Statement::VariableDeclaration { initializer, .. } => {
-                                    self.inline_function_calls_in_expr(initializer, inline_candidates);
+                                    self.inline_function_calls_in_expr(
+                                        initializer,
+                                        inline_candidates,
+                                    );
                                 }
                                 Statement::ArrayDeclaration {
-                                    initializer,
-                                    size,
-                                    ..
+                                    initializer, size, ..
                                 } => {
                                     self.inline_function_calls_in_expr(
                                         initializer,
@@ -501,12 +486,13 @@ impl FunctionInliner {
                                         self.inline_function_calls_in_expr(expr, inline_candidates);
                                     }
                                     Statement::VariableDeclaration { initializer, .. } => {
-                                        self.inline_function_calls_in_expr(initializer, inline_candidates);
+                                        self.inline_function_calls_in_expr(
+                                            initializer,
+                                            inline_candidates,
+                                        );
                                     }
                                     Statement::ArrayDeclaration {
-                                        initializer,
-                                        size,
-                                        ..
+                                        initializer, size, ..
                                     } => {
                                         self.inline_function_calls_in_expr(
                                             initializer,
@@ -741,17 +727,11 @@ impl FunctionInliner {
     ) {
         match statement {
             Statement::VariableDeclaration {
-                name,
-                initializer,
-                ..
+                name, initializer, ..
             } => {
                 // Rename the variable declaration
                 *name = format!("{}{}", prefix, name);
-                self.rename_variables_in_expr(
-                    initializer,
-                    prefix,
-                    parameters,
-                );
+                self.rename_variables_in_expr(initializer, prefix, parameters);
             }
             Statement::ArrayDeclaration {
                 name,
@@ -761,40 +741,20 @@ impl FunctionInliner {
             } => {
                 // Rename the array declaration
                 *name = format!("{}{}", prefix, name);
-                self.rename_variables_in_expr(
-                    initializer,
-                    prefix,
-                    parameters,
-                );
+                self.rename_variables_in_expr(initializer, prefix, parameters);
                 if let Some(size_expr) = size {
-                    self.rename_variables_in_expr(
-                        size_expr,
-                        prefix,
-                        parameters,
-                    );
+                    self.rename_variables_in_expr(size_expr, prefix, parameters);
                 }
             }
             Statement::ExpressionStatement(expr) => {
-                self.rename_variables_in_expr(
-                    expr,
-                    prefix,
-                    parameters,
-                );
+                self.rename_variables_in_expr(expr, prefix, parameters);
             }
             Statement::Return(expr) => {
-                self.rename_variables_in_expr(
-                    expr,
-                    prefix,
-                    parameters,
-                );
+                self.rename_variables_in_expr(expr, prefix, parameters);
             }
             Statement::Block(statements) => {
                 for stmt in statements {
-                    self.rename_variables_in_statement(
-                        stmt,
-                        prefix,
-                        parameters,
-                    );
+                    self.rename_variables_in_statement(stmt, prefix, parameters);
                 }
             }
             Statement::If {
@@ -802,53 +762,19 @@ impl FunctionInliner {
                 then_block,
                 else_block,
             } => {
-                self.rename_variables_in_expr(
-                    condition,
-                    prefix,
-                    parameters,
-                );
-                self.rename_variables_in_statement(
-                    then_block,
-                    prefix,
-                    parameters,
-                );
+                self.rename_variables_in_expr(condition, prefix, parameters);
+                self.rename_variables_in_statement(then_block, prefix, parameters);
                 if let Some(else_stmt) = else_block {
-                    self.rename_variables_in_statement(
-                        else_stmt,
-                        prefix,
-                        parameters,
-                    );
+                    self.rename_variables_in_statement(else_stmt, prefix, parameters);
                 }
             }
-            Statement::While {
-                condition,
-                body,
-            } => {
-                self.rename_variables_in_expr(
-                    condition,
-                    prefix,
-                    parameters,
-                );
-                self.rename_variables_in_statement(
-                    body,
-                    prefix,
-                    parameters,
-                );
+            Statement::While { condition, body } => {
+                self.rename_variables_in_expr(condition, prefix, parameters);
+                self.rename_variables_in_statement(body, prefix, parameters);
             }
-            Statement::DoWhile {
-                body,
-                condition,
-            } => {
-                self.rename_variables_in_statement(
-                    body,
-                    prefix,
-                    parameters,
-                );
-                self.rename_variables_in_expr(
-                    condition,
-                    prefix,
-                    parameters,
-                );
+            Statement::DoWhile { body, condition } => {
+                self.rename_variables_in_statement(body, prefix, parameters);
+                self.rename_variables_in_expr(condition, prefix, parameters);
             }
             Statement::For {
                 initializer,
@@ -857,48 +783,21 @@ impl FunctionInliner {
                 body,
             } => {
                 if let Some(init) = initializer {
-                    self.rename_variables_in_statement(
-                        init,
-                        prefix,
-                        parameters,
-                    );
+                    self.rename_variables_in_statement(init, prefix, parameters);
                 }
                 if let Some(cond) = condition {
-                    self.rename_variables_in_expr(
-                        cond,
-                        prefix,
-                        parameters,
-                    );
+                    self.rename_variables_in_expr(cond, prefix, parameters);
                 }
                 if let Some(inc) = increment {
-                    self.rename_variables_in_expr(
-                        inc,
-                        prefix,
-                        parameters,
-                    );
+                    self.rename_variables_in_expr(inc, prefix, parameters);
                 }
-                self.rename_variables_in_statement(
-                    body,
-                    prefix,
-                    parameters,
-                );
+                self.rename_variables_in_statement(body, prefix, parameters);
             }
-            Statement::Switch {
-                expression,
-                cases,
-            } => {
-                self.rename_variables_in_expr(
-                    expression,
-                    prefix,
-                    parameters,
-                );
+            Statement::Switch { expression, cases } => {
+                self.rename_variables_in_expr(expression, prefix, parameters);
                 for case in cases {
                     for stmt in &mut case.statements {
-                        self.rename_variables_in_statement(
-                            stmt,
-                            prefix,
-                            parameters,
-                        );
+                        self.rename_variables_in_statement(stmt, prefix, parameters);
                     }
                 }
             }
@@ -921,140 +820,51 @@ impl FunctionInliner {
                     *name = format!("{}{}", prefix, name);
                 }
             }
-            Expression::BinaryOperation {
-                left,
-                right,
-                ..
-            } => {
-                self.rename_variables_in_expr(
-                    left,
-                    prefix,
-                    parameters,
-                );
-                self.rename_variables_in_expr(
-                    right,
-                    prefix,
-                    parameters,
-                );
+            Expression::BinaryOperation { left, right, .. } => {
+                self.rename_variables_in_expr(left, prefix, parameters);
+                self.rename_variables_in_expr(right, prefix, parameters);
             }
-            Expression::UnaryOperation {
-                operand,
-                ..
-            } => {
-                self.rename_variables_in_expr(
-                    operand,
-                    prefix,
-                    parameters,
-                );
+            Expression::UnaryOperation { operand, .. } => {
+                self.rename_variables_in_expr(operand, prefix, parameters);
             }
-            Expression::FunctionCall {
-                arguments,
-                ..
-            } => {
+            Expression::FunctionCall { arguments, .. } => {
                 for arg in arguments {
-                    self.rename_variables_in_expr(
-                        arg,
-                        prefix,
-                        parameters,
-                    );
+                    self.rename_variables_in_expr(arg, prefix, parameters);
                 }
             }
-            Expression::Assignment {
-                target,
-                value,
-            } => {
-                self.rename_variables_in_expr(
-                    target,
-                    prefix,
-                    parameters,
-                );
-                self.rename_variables_in_expr(
-                    value,
-                    prefix,
-                    parameters,
-                );
+            Expression::Assignment { target, value } => {
+                self.rename_variables_in_expr(target, prefix, parameters);
+                self.rename_variables_in_expr(value, prefix, parameters);
             }
             Expression::TernaryIf {
                 condition,
                 then_expr,
                 else_expr,
             } => {
-                self.rename_variables_in_expr(
-                    condition,
-                    prefix,
-                    parameters,
-                );
-                self.rename_variables_in_expr(
-                    then_expr,
-                    prefix,
-                    parameters,
-                );
-                self.rename_variables_in_expr(
-                    else_expr,
-                    prefix,
-                    parameters,
-                );
+                self.rename_variables_in_expr(condition, prefix, parameters);
+                self.rename_variables_in_expr(then_expr, prefix, parameters);
+                self.rename_variables_in_expr(else_expr, prefix, parameters);
             }
-            Expression::Cast {
-                expr,
-                ..
-            } => {
-                self.rename_variables_in_expr(
-                    expr,
-                    prefix,
-                    parameters,
-                );
+            Expression::Cast { expr, .. } => {
+                self.rename_variables_in_expr(expr, prefix, parameters);
             }
             Expression::SizeOf(expr) => {
-                self.rename_variables_in_expr(
-                    expr,
-                    prefix,
-                    parameters,
-                );
+                self.rename_variables_in_expr(expr, prefix, parameters);
             }
-            Expression::ArrayAccess {
-                array,
-                index,
-            } => {
-                self.rename_variables_in_expr(
-                    array,
-                    prefix,
-                    parameters,
-                );
-                self.rename_variables_in_expr(
-                    index,
-                    prefix,
-                    parameters,
-                );
+            Expression::ArrayAccess { array, index } => {
+                self.rename_variables_in_expr(array, prefix, parameters);
+                self.rename_variables_in_expr(index, prefix, parameters);
             }
             Expression::ArrayLiteral(elements) => {
                 for element in elements {
-                    self.rename_variables_in_expr(
-                        element,
-                        prefix,
-                        parameters,
-                    );
+                    self.rename_variables_in_expr(element, prefix, parameters);
                 }
             }
-            Expression::StructFieldAccess {
-                object,
-                ..
-            } => {
-                self.rename_variables_in_expr(
-                    object,
-                    prefix,
-                    parameters,
-                );
+            Expression::StructFieldAccess { object, .. } => {
+                self.rename_variables_in_expr(object, prefix, parameters);
             }
-            Expression::PointerFieldAccess {
-                pointer,
-                ..
-            } => {
-                self.rename_variables_in_expr(
-                    pointer,
-                    prefix,
-                    parameters,
-                );
+            Expression::PointerFieldAccess { pointer, .. } => {
+                self.rename_variables_in_expr(pointer, prefix, parameters);
             }
             _ => {
                 // Other expressions don't contain variables to rename
@@ -1072,127 +882,56 @@ impl FunctionInliner {
         use crate::parser::ast::Expression;
 
         match expr {
-            Expression::FunctionCall {
-                name: _,
-                arguments,
-            } => {
+            Expression::FunctionCall { name: _, arguments } => {
                 // Inline arguments first (depth-first)
                 for arg in arguments {
-                    self.inline_function_calls_in_expr(
-                        arg,
-                        inline_candidates,
-                    );
+                    self.inline_function_calls_in_expr(arg, inline_candidates);
                 }
 
                 // We don't actually inline the function here, that's done in the statement pass
                 // This is just to process nested calls in the arguments
             }
-            Expression::BinaryOperation {
-                left,
-                right,
-                ..
-            } => {
-                self.inline_function_calls_in_expr(
-                    left,
-                    inline_candidates,
-                );
-                self.inline_function_calls_in_expr(
-                    right,
-                    inline_candidates,
-                );
+            Expression::BinaryOperation { left, right, .. } => {
+                self.inline_function_calls_in_expr(left, inline_candidates);
+                self.inline_function_calls_in_expr(right, inline_candidates);
             }
-            Expression::UnaryOperation {
-                operand,
-                ..
-            } => {
-                self.inline_function_calls_in_expr(
-                    operand,
-                    inline_candidates,
-                );
+            Expression::UnaryOperation { operand, .. } => {
+                self.inline_function_calls_in_expr(operand, inline_candidates);
             }
-            Expression::Assignment {
-                target,
-                value,
-            } => {
-                self.inline_function_calls_in_expr(
-                    target,
-                    inline_candidates,
-                );
-                self.inline_function_calls_in_expr(
-                    value,
-                    inline_candidates,
-                );
+            Expression::Assignment { target, value } => {
+                self.inline_function_calls_in_expr(target, inline_candidates);
+                self.inline_function_calls_in_expr(value, inline_candidates);
             }
             Expression::TernaryIf {
                 condition,
                 then_expr,
                 else_expr,
             } => {
-                self.inline_function_calls_in_expr(
-                    condition,
-                    inline_candidates,
-                );
-                self.inline_function_calls_in_expr(
-                    then_expr,
-                    inline_candidates,
-                );
-                self.inline_function_calls_in_expr(
-                    else_expr,
-                    inline_candidates,
-                );
+                self.inline_function_calls_in_expr(condition, inline_candidates);
+                self.inline_function_calls_in_expr(then_expr, inline_candidates);
+                self.inline_function_calls_in_expr(else_expr, inline_candidates);
             }
             Expression::Cast {
-                expr: inner_expr,
-                ..
+                expr: inner_expr, ..
             } => {
-                self.inline_function_calls_in_expr(
-                    inner_expr,
-                    inline_candidates,
-                );
+                self.inline_function_calls_in_expr(inner_expr, inline_candidates);
             }
-            Expression::ArrayAccess {
-                array,
-                index,
-            } => {
-                self.inline_function_calls_in_expr(
-                    array,
-                    inline_candidates,
-                );
-                self.inline_function_calls_in_expr(
-                    index,
-                    inline_candidates,
-                );
+            Expression::ArrayAccess { array, index } => {
+                self.inline_function_calls_in_expr(array, inline_candidates);
+                self.inline_function_calls_in_expr(index, inline_candidates);
             }
-            Expression::StructFieldAccess {
-                object,
-                ..
-            } => {
-                self.inline_function_calls_in_expr(
-                    object,
-                    inline_candidates,
-                );
+            Expression::StructFieldAccess { object, .. } => {
+                self.inline_function_calls_in_expr(object, inline_candidates);
             }
-            Expression::PointerFieldAccess {
-                pointer,
-                ..
-            } => {
-                self.inline_function_calls_in_expr(
-                    pointer,
-                    inline_candidates,
-                );
+            Expression::PointerFieldAccess { pointer, .. } => {
+                self.inline_function_calls_in_expr(pointer, inline_candidates);
             }
             Expression::SizeOf(expr) => {
-                self.inline_function_calls_in_expr(
-                    expr,
-                    inline_candidates,
-                );
+                self.inline_function_calls_in_expr(expr, inline_candidates);
             }
             Expression::ArrayLiteral(elements) => {
                 for element in elements {
-                    self.inline_function_calls_in_expr(
-                        element,
-                        inline_candidates,
-                    );
+                    self.inline_function_calls_in_expr(element, inline_candidates);
                 }
             }
             _ => {}
@@ -1256,6 +995,3 @@ impl Transform for FunctionInliner {
         "Function Inliner"
     }
 }
-
-
-

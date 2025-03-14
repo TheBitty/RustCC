@@ -61,18 +61,18 @@ pub enum TokenType {
     Tilde,
     ShiftLeft,
     ShiftRight, // Bitwise operators
-    
+
     // Compound assignment operators
     ShiftLeftEqual,
     ShiftRightEqual,
     AmpersandEqual,
     PipeEqual,
     CaretEqual,
-    
+
     // Increment/decrement operators
     Increment, // ++
     Decrement, // --
-    
+
     // Structure access
     Arrow, // ->
 
@@ -85,7 +85,7 @@ pub enum TokenType {
     RightBracket, // [ ]
     Semicolon,
     Comma,
-    Dot, // ; , .
+    Dot,   // ; , .
     Colon, // :
 
     // Preprocessor directives

@@ -47,7 +47,9 @@ impl DeadCodeEliminator {
             Statement::VariableDeclaration { initializer, .. } => {
                 self.find_used_vars_in_expr(initializer, used_vars);
             }
-            Statement::ArrayDeclaration { initializer, size, .. } => {
+            Statement::ArrayDeclaration {
+                initializer, size, ..
+            } => {
                 self.find_used_vars_in_expr(initializer, used_vars);
                 if let Some(size_expr) = size {
                     self.find_used_vars_in_expr(size_expr, used_vars);

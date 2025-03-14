@@ -27,7 +27,9 @@ impl ConstantFolder {
             Statement::VariableDeclaration { initializer, .. } => {
                 *initializer = self.fold_expression(initializer);
             }
-            Statement::ArrayDeclaration { initializer, size, .. } => {
+            Statement::ArrayDeclaration {
+                initializer, size, ..
+            } => {
                 *initializer = self.fold_expression(initializer);
                 if let Some(size_expr) = size {
                     *size_expr = self.fold_expression(size_expr);
@@ -156,7 +158,9 @@ impl ConstantFolder {
                 // Only for integer literals do we calculate the result now
                 if let Expression::IntegerLiteral(val) = folded_operand {
                     match operator {
-                        crate::parser::ast::OperatorType::Unary(UnaryOp::Negate) => Expression::IntegerLiteral(-val),
+                        crate::parser::ast::OperatorType::Unary(UnaryOp::Negate) => {
+                            Expression::IntegerLiteral(-val)
+                        }
                         _ => {
                             // For other operators, just return with folded operand
                             Expression::UnaryOperation {
@@ -188,18 +192,14 @@ impl ConstantFolder {
                     .iter()
                     .map(|elem| self.fold_expression(elem))
                     .collect();
-                
+
                 Expression::ArrayLiteral(folded_elements)
             }
-            Expression::ArrayAccess { array, index } => {
-                Expression::ArrayAccess {
-                    array: Box::new(self.fold_expression(array)),
-                    index: Box::new(self.fold_expression(index)),
-                }
-            }
-            Expression::SizeOf(expr) => {
-                Expression::SizeOf(Box::new(self.fold_expression(expr)))
-            }
+            Expression::ArrayAccess { array, index } => Expression::ArrayAccess {
+                array: Box::new(self.fold_expression(array)),
+                index: Box::new(self.fold_expression(index)),
+            },
+            Expression::SizeOf(expr) => Expression::SizeOf(Box::new(self.fold_expression(expr))),
             // For other expressions, return as is
             _ => expr.clone(),
         }

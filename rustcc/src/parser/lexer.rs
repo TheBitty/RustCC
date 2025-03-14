@@ -83,13 +83,13 @@ impl Lexer {
 
     fn scan_token(&mut self) {
         let c = self.advance();
-        
+
         // Check for preprocessor directive at the start of a line
         if c == '#' && self.at_line_start {
             self.preprocessor_directive();
             return;
         }
-        
+
         match c {
             '(' => self.add_token(TokenType::LeftParen),
             ')' => self.add_token(TokenType::RightParen),
@@ -231,7 +231,7 @@ impl Lexer {
             '~' => self.add_token(TokenType::Tilde),
             ' ' | '\r' | '\t' => {
                 // Whitespace doesn't affect line start status
-            },
+            }
             '\n' => {
                 self.line += 1;
                 self.column = 1;
@@ -249,7 +249,7 @@ impl Lexer {
                 }
             }
         }
-        
+
         // After processing a non-whitespace character, we're no longer at the start of a line
         if c != ' ' && c != '\r' && c != '\t' && c != '\n' {
             self.at_line_start = false;
@@ -259,23 +259,23 @@ impl Lexer {
     fn preprocessor_directive(&mut self) {
         // Add the # token
         self.add_token(TokenType::Hash);
-        
+
         // Skip whitespace
         while self.peek() == ' ' || self.peek() == '\t' {
             self.advance();
         }
-        
+
         // Mark the start of the directive name
         self.start = self.current;
-        
+
         // Read the directive name
         while self.is_alpha(self.peek()) {
             self.advance();
         }
-        
+
         // Get the directive name
         let directive = self.source[self.start..self.current].to_string();
-        
+
         // Check if it's a known preprocessor directive
         match directive.as_str() {
             "include" => self.add_token(TokenType::PPInclude),
@@ -292,24 +292,24 @@ impl Lexer {
             "warning" => self.add_token(TokenType::PPWarning),
             _ => self.add_token(TokenType::Error),
         }
-        
+
         // For include directives, handle the path
         if directive == "include" {
             // Skip whitespace
             while self.peek() == ' ' || self.peek() == '\t' {
                 self.advance();
             }
-            
+
             // Check if it's a system include or local include
             if self.peek() == '<' {
                 self.advance(); // Consume <
                 self.start = self.current;
-                
+
                 // Read until >
                 while !self.is_at_end() && self.peek() != '>' && self.peek() != '\n' {
                     self.advance();
                 }
-                
+
                 if self.peek() == '>' {
                     let path = self.source[self.start..self.current].to_string();
                     self.add_token_with_literal(TokenType::StringLiteral, path);
@@ -320,12 +320,12 @@ impl Lexer {
             } else if self.peek() == '"' {
                 self.advance(); // Consume "
                 self.start = self.current;
-                
+
                 // Read until "
                 while !self.is_at_end() && self.peek() != '"' && self.peek() != '\n' {
                     self.advance();
                 }
-                
+
                 if self.peek() == '"' {
                     let path = self.source[self.start..self.current].to_string();
                     self.add_token_with_literal(TokenType::StringLiteral, path);
@@ -337,35 +337,34 @@ impl Lexer {
                 self.add_token(TokenType::Error);
             }
         }
-        
         // For define directives, handle the macro name and value
         else if directive == "define" {
             // Skip whitespace
             while self.peek() == ' ' || self.peek() == '\t' {
                 self.advance();
             }
-            
+
             // Read the macro name
             self.start = self.current;
             while self.is_alphanumeric(self.peek()) {
                 self.advance();
             }
-            
+
             if self.start < self.current {
                 let name = self.source[self.start..self.current].to_string();
                 self.add_token_with_literal(TokenType::Identifier, name);
-                
+
                 // Skip whitespace
                 while self.peek() == ' ' || self.peek() == '\t' {
                     self.advance();
                 }
-                
+
                 // Read the macro value (rest of the line)
                 self.start = self.current;
                 while !self.is_at_end() && self.peek() != '\n' {
                     self.advance();
                 }
-                
+
                 if self.start < self.current {
                     let value = self.source[self.start..self.current].to_string();
                     self.add_token_with_literal(TokenType::StringLiteral, value);
@@ -374,7 +373,6 @@ impl Lexer {
                 self.add_token(TokenType::Error);
             }
         }
-        
         // For other directives, just consume the rest of the line
         else {
             while !self.is_at_end() && self.peek() != '\n' {
@@ -391,20 +389,20 @@ impl Lexer {
                 self.column = 1;
                 self.at_line_start = true;
             }
-            
+
             // Handle escape sequences
             if self.peek() == '\\' && !self.is_at_end() {
                 self.advance(); // Consume the backslash
-                
+
                 // Handle common escape sequences
                 match self.peek() {
                     'n' | 'r' | 't' | '\\' | '"' | '\'' => {
                         self.advance();
-                    },
+                    }
                     'x' => {
                         // Hex escape sequence \xHH
                         self.advance(); // Consume 'x'
-                        // Read up to 2 hex digits
+                                        // Read up to 2 hex digits
                         for _ in 0..2 {
                             if self.is_hex_digit(self.peek()) {
                                 self.advance();
@@ -412,7 +410,7 @@ impl Lexer {
                                 break;
                             }
                         }
-                    },
+                    }
                     '0'..='7' => {
                         // Octal escape sequence \OOO
                         // Read up to 3 octal digits
@@ -423,7 +421,7 @@ impl Lexer {
                                 break;
                             }
                         }
-                    },
+                    }
                     _ => {
                         // Invalid escape sequence, but we'll just consume it
                         self.advance();
@@ -433,16 +431,16 @@ impl Lexer {
                 self.advance();
             }
         }
-        
+
         if self.is_at_end() {
             // Unterminated string
             self.add_token(TokenType::Error);
             return;
         }
-        
+
         // Consume the closing quote
         self.advance();
-        
+
         // Extract the string value (without the quotes)
         let value = self.source[self.start + 1..self.current - 1].to_string();
         self.add_token_with_literal(TokenType::StringLiteral, value);
@@ -456,7 +454,7 @@ impl Lexer {
                 self.column = 1;
                 self.at_line_start = true;
             }
-            
+
             // Handle escape sequences
             if self.peek() == '\\' && !self.is_at_end() {
                 self.advance(); // Consume the backslash
@@ -465,16 +463,16 @@ impl Lexer {
                 self.advance();
             }
         }
-        
+
         if self.is_at_end() {
             // Unterminated character literal
             self.add_token(TokenType::Error);
             return;
         }
-        
+
         // Consume the closing quote
         self.advance();
-        
+
         // Extract the character value (without the quotes)
         let value = self.source[self.start + 1..self.current - 1].to_string();
         self.add_token_with_literal(TokenType::CharLiteral, value);
@@ -547,11 +545,11 @@ impl Lexer {
     fn is_alphanumeric(&self, c: char) -> bool {
         self.is_alpha(c) || self.is_digit(c)
     }
-    
+
     fn is_hex_digit(&self, c: char) -> bool {
         self.is_digit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
     }
-    
+
     fn is_octal_digit(&self, c: char) -> bool {
         c >= '0' && c <= '7'
     }
@@ -561,12 +559,12 @@ impl Lexer {
         if self.peek() == 'x' || self.peek() == 'X' {
             // Hex literal (0x...)
             self.advance(); // Consume 'x'
-            
+
             // Read hex digits
             while self.is_hex_digit(self.peek()) {
                 self.advance();
             }
-            
+
             // Extract the value
             let value = self.source[self.start..self.current].to_string();
             self.add_token_with_literal(TokenType::IntegerLiteral, value);
@@ -574,29 +572,31 @@ impl Lexer {
         } else if self.peek() == 'b' || self.peek() == 'B' {
             // Binary literal (0b...)
             self.advance(); // Consume 'b'
-            
+
             // Read binary digits
             while self.peek() == '0' || self.peek() == '1' {
                 self.advance();
             }
-            
+
             // Extract the value
             let value = self.source[self.start..self.current].to_string();
             self.add_token_with_literal(TokenType::IntegerLiteral, value);
             return;
-        } else if self.source.chars().nth(self.start).unwrap() == '0' && self.is_octal_digit(self.peek()) {
+        } else if self.source.chars().nth(self.start).unwrap() == '0'
+            && self.is_octal_digit(self.peek())
+        {
             // Octal literal (0...)
             // Read octal digits
             while self.is_octal_digit(self.peek()) {
                 self.advance();
             }
-            
+
             // Extract the value
             let value = self.source[self.start..self.current].to_string();
             self.add_token_with_literal(TokenType::IntegerLiteral, value);
             return;
         }
-        
+
         // Decimal literal
         while self.is_digit(self.peek()) {
             self.advance();
@@ -614,12 +614,12 @@ impl Lexer {
         // Look for an exponent
         if self.peek() == 'e' || self.peek() == 'E' {
             self.advance(); // Consume 'e'
-            
+
             // Optional sign
             if self.peek() == '+' || self.peek() == '-' {
                 self.advance();
             }
-            
+
             // Exponent digits
             if self.is_digit(self.peek()) {
                 while self.is_digit(self.peek()) {
@@ -662,7 +662,7 @@ impl Lexer {
         }
 
         let text = self.source[self.start..self.current].to_string();
-        
+
         // Check if it's a keyword
         if let Some(token_type) = self.keywords.get(&text) {
             self.add_token(token_type.clone());

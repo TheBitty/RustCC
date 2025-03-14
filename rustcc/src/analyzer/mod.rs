@@ -85,7 +85,7 @@ impl SemanticAnalyzer {
 
                 // Analyze the initializer expression
                 self.analyze_expression(initializer)?;
-                
+
                 // Analyze the size expression if provided
                 if let Some(size_expr) = size {
                     self.analyze_expression(size_expr)?;

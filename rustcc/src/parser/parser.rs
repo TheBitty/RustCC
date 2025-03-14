@@ -1,4 +1,4 @@
-use super::ast::{BinaryOp, Expression, Function, Program, Statement, Type, FunctionParameter};
+use super::ast::{BinaryOp, Expression, Function, FunctionParameter, Program, Statement, Type};
 use super::token::{Token, TokenType};
 use std::collections::HashMap;
 
@@ -13,8 +13,8 @@ pub struct Parser {
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
-        Parser { 
-            tokens, 
+        Parser {
+            tokens,
             current: 0,
             defines: HashMap::new(),
             includes: Vec::new(),
@@ -24,7 +24,7 @@ impl Parser {
     pub fn parse(&mut self) -> Result<Program, String> {
         // First process all preprocessor directives
         self.process_preprocessor_directives()?;
-        
+
         let mut functions = Vec::new();
         let mut structs = Vec::new();
 
@@ -35,15 +35,20 @@ impl Parser {
                 structs.push(self.parse_struct()?);
             }
             // Handle function declarations with different return types
-            else if self.check(TokenType::Int) || self.check(TokenType::Void) || 
-                     self.check(TokenType::Char) || self.check(TokenType::Struct) {
+            else if self.check(TokenType::Int)
+                || self.check(TokenType::Void)
+                || self.check(TokenType::Char)
+                || self.check(TokenType::Struct)
+            {
                 let return_type = self.parse_type()?;
                 functions.push(self.parse_function(return_type)?);
-            } 
-            else {
+            } else {
                 // Skip unrecognized tokens
                 if !self.is_at_preprocessor_directive() && !self.is_at_end() {
-                    return Err(format!("Expected type declaration at line {}", self.peek().line));
+                    return Err(format!(
+                        "Expected type declaration at line {}",
+                        self.peek().line
+                    ));
                 }
                 if !self.is_at_end() {
                     self.advance();
@@ -69,7 +74,9 @@ impl Parser {
                         match self.tokens[i + 1].token_type {
                             TokenType::PPInclude => {
                                 // Handle include directive
-                                if i + 2 < self.tokens.len() && self.tokens[i + 2].token_type == TokenType::StringLiteral {
+                                if i + 2 < self.tokens.len()
+                                    && self.tokens[i + 2].token_type == TokenType::StringLiteral
+                                {
                                     if let Some(path) = &self.tokens[i + 2].literal {
                                         self.includes.push(path.clone());
                                     }
@@ -77,18 +84,23 @@ impl Parser {
                                 // Skip this directive in subsequent parsing
                                 i += 3; // Skip #include "file.h"
                                 continue;
-                            },
+                            }
                             TokenType::PPDefine => {
                                 // Handle define directive
-                                if i + 2 < self.tokens.len() && self.tokens[i + 2].token_type == TokenType::Identifier {
+                                if i + 2 < self.tokens.len()
+                                    && self.tokens[i + 2].token_type == TokenType::Identifier
+                                {
                                     let name = self.tokens[i + 2].lexeme.clone();
                                     if i + 3 < self.tokens.len() {
                                         // Handle various define value formats
-                                        if self.tokens[i + 3].token_type == TokenType::StringLiteral {
+                                        if self.tokens[i + 3].token_type == TokenType::StringLiteral
+                                        {
                                             if let Some(value) = &self.tokens[i + 3].literal {
                                                 self.defines.insert(name, value.clone());
                                             }
-                                        } else if self.tokens[i + 3].token_type == TokenType::IntegerLiteral {
+                                        } else if self.tokens[i + 3].token_type
+                                            == TokenType::IntegerLiteral
+                                        {
                                             if let Some(value) = &self.tokens[i + 3].literal {
                                                 self.defines.insert(name, value.clone());
                                             }
@@ -96,37 +108,51 @@ impl Parser {
                                     }
                                 }
                                 // Skip to end of line
-                                while i < self.tokens.len() && self.tokens[i].token_type != TokenType::Eof {
+                                while i < self.tokens.len()
+                                    && self.tokens[i].token_type != TokenType::Eof
+                                {
                                     i += 1;
-                                    if i < self.tokens.len() && self.tokens[i].line > self.tokens[i-1].line {
+                                    if i < self.tokens.len()
+                                        && self.tokens[i].line > self.tokens[i - 1].line
+                                    {
                                         break;
                                     }
                                 }
                                 continue;
-                            },
+                            }
                             // Other preprocessor directives
-                            TokenType::PPIfDef | TokenType::PPIfNDef | TokenType::PPIf |
-                            TokenType::PPElse | TokenType::PPElif | TokenType::PPEndif |
-                            TokenType::PPUndef | TokenType::PPPragma | TokenType::PPErrorDir |
-                            TokenType::PPWarning => {
+                            TokenType::PPIfDef
+                            | TokenType::PPIfNDef
+                            | TokenType::PPIf
+                            | TokenType::PPElse
+                            | TokenType::PPElif
+                            | TokenType::PPEndif
+                            | TokenType::PPUndef
+                            | TokenType::PPPragma
+                            | TokenType::PPErrorDir
+                            | TokenType::PPWarning => {
                                 // Skip to end of line
-                                while i < self.tokens.len() && self.tokens[i].token_type != TokenType::Eof {
+                                while i < self.tokens.len()
+                                    && self.tokens[i].token_type != TokenType::Eof
+                                {
                                     i += 1;
-                                    if i < self.tokens.len() && self.tokens[i].line > self.tokens[i-1].line {
+                                    if i < self.tokens.len()
+                                        && self.tokens[i].line > self.tokens[i - 1].line
+                                    {
                                         break;
                                     }
                                 }
                                 continue;
-                            },
+                            }
                             _ => {}
                         }
                     }
-                },
+                }
                 _ => {}
             }
             i += 1;
         }
-        
+
         // Reset current position after preprocessing
         self.current = 0;
         Ok(())
@@ -158,7 +184,10 @@ impl Parser {
             Ok(Type::Char)
         } else if self.match_token(TokenType::Struct) {
             // Handle struct types
-            let name = self.consume(TokenType::Identifier, "Expected struct name")?.lexeme.clone();
+            let name = self
+                .consume(TokenType::Identifier, "Expected struct name")?
+                .lexeme
+                .clone();
             if self.match_token(TokenType::Star) {
                 return Ok(Type::Pointer(Box::new(Type::Struct(name))));
             }
@@ -179,13 +208,16 @@ impl Parser {
         if !self.check(TokenType::RightParen) {
             loop {
                 let param_type = self.parse_type()?;
-                let param_name = self.consume(TokenType::Identifier, "Expected parameter name")?.lexeme.clone();
-                
+                let param_name = self
+                    .consume(TokenType::Identifier, "Expected parameter name")?
+                    .lexeme
+                    .clone();
+
                 parameters.push(FunctionParameter {
                     name: param_name,
                     data_type: param_type,
                 });
-                
+
                 if !self.match_token(TokenType::Comma) {
                     break;
                 }
@@ -193,7 +225,7 @@ impl Parser {
         }
 
         self.consume(TokenType::RightParen, "Expected ')' after parameters")?;
-        
+
         // Handle function declarations without bodies
         if self.match_token(TokenType::Semicolon) {
             // Function declaration without body
@@ -204,7 +236,7 @@ impl Parser {
                 body: Vec::new(),
             });
         }
-        
+
         self.consume(TokenType::LeftBrace, "Expected '{' before function body")?;
 
         let mut body = Vec::new();
@@ -227,8 +259,7 @@ impl Parser {
             let expr = self.parse_expression()?;
             self.consume(TokenType::Semicolon, "Expected ';' after return statement")?;
             Ok(Statement::Return(expr))
-        } 
-        else if self.match_token(TokenType::LeftBrace) {
+        } else if self.match_token(TokenType::LeftBrace) {
             // Parse a block of statements
             let mut statements = Vec::new();
             while !self.check(TokenType::RightBrace) && !self.is_at_end() {
@@ -236,44 +267,38 @@ impl Parser {
             }
             self.consume(TokenType::RightBrace, "Expected '}' after block")?;
             Ok(Statement::Block(statements))
-        }
-        else if self.match_token(TokenType::If) {
+        } else if self.match_token(TokenType::If) {
             // Parse if statement
             self.consume(TokenType::LeftParen, "Expected '(' after 'if'")?;
             let condition = self.parse_expression()?;
             self.consume(TokenType::RightParen, "Expected ')' after condition")?;
-            
+
             let then_branch = Box::new(self.parse_statement()?);
-            
+
             let else_branch = if self.match_token(TokenType::Else) {
                 Some(Box::new(self.parse_statement()?))
             } else {
                 None
             };
-            
+
             Ok(Statement::If {
                 condition,
                 then_block: then_branch,
                 else_block: else_branch,
             })
-        }
-        else if self.match_token(TokenType::While) {
+        } else if self.match_token(TokenType::While) {
             // Parse while loop
             self.consume(TokenType::LeftParen, "Expected '(' after 'while'")?;
             let condition = self.parse_expression()?;
             self.consume(TokenType::RightParen, "Expected ')' after condition")?;
-            
+
             let body = Box::new(self.parse_statement()?);
-            
-            Ok(Statement::While {
-                condition,
-                body,
-            })
-        }
-        else if self.match_token(TokenType::For) {
+
+            Ok(Statement::While { condition, body })
+        } else if self.match_token(TokenType::For) {
             // Parse for loop
             self.consume(TokenType::LeftParen, "Expected '(' after 'for'")?;
-            
+
             // Parse initializer
             let initializer = if !self.check(TokenType::Semicolon) {
                 if self.check(TokenType::Int) || self.check(TokenType::Char) {
@@ -289,7 +314,7 @@ impl Parser {
                 self.consume(TokenType::Semicolon, "Expected ';' after loop initializer")?;
                 None
             };
-            
+
             // Parse condition
             let condition = if !self.check(TokenType::Semicolon) {
                 let expr = self.parse_expression()?;
@@ -298,7 +323,7 @@ impl Parser {
                 None
             };
             self.consume(TokenType::Semicolon, "Expected ';' after loop condition")?;
-            
+
             // Parse increment
             let increment = if !self.check(TokenType::RightParen) {
                 let expr = self.parse_expression()?;
@@ -307,99 +332,100 @@ impl Parser {
                 None
             };
             self.consume(TokenType::RightParen, "Expected ')' after for clauses")?;
-            
+
             // Parse body
             let body = Box::new(self.parse_statement()?);
-            
+
             Ok(Statement::For {
                 initializer,
                 condition,
                 increment,
                 body,
             })
-        }
-        else if self.match_token(TokenType::Switch) {
+        } else if self.match_token(TokenType::Switch) {
             // Parse switch statement
             self.consume(TokenType::LeftParen, "Expected '(' after 'switch'")?;
             let expr = self.parse_expression()?;
-            self.consume(TokenType::RightParen, "Expected ')' after switch expression")?;
-            
+            self.consume(
+                TokenType::RightParen,
+                "Expected ')' after switch expression",
+            )?;
+
             self.consume(TokenType::LeftBrace, "Expected '{' before switch cases")?;
-            
+
             let mut cases = Vec::new();
-            
+
             while !self.check(TokenType::RightBrace) && !self.is_at_end() {
                 if self.match_token(TokenType::Case) {
                     // Parse case
                     let value = self.parse_expression()?;
                     self.consume(TokenType::Colon, "Expected ':' after case value")?;
-                    
+
                     let mut statements = Vec::new();
-                    while !self.check(TokenType::Case) && !self.check(TokenType::Default) &&
-                         !self.check(TokenType::RightBrace) && !self.is_at_end() {
+                    while !self.check(TokenType::Case)
+                        && !self.check(TokenType::Default)
+                        && !self.check(TokenType::RightBrace)
+                        && !self.is_at_end()
+                    {
                         statements.push(self.parse_statement()?);
                     }
-                    
+
                     cases.push(crate::parser::ast::SwitchCase {
                         value: Some(value),
                         statements,
                     });
-                }
-                else if self.match_token(TokenType::Default) {
+                } else if self.match_token(TokenType::Default) {
                     // Parse default case
                     self.consume(TokenType::Colon, "Expected ':' after 'default'")?;
-                    
+
                     let mut statements = Vec::new();
-                    while !self.check(TokenType::Case) && !self.check(TokenType::Default) &&
-                         !self.check(TokenType::RightBrace) && !self.is_at_end() {
+                    while !self.check(TokenType::Case)
+                        && !self.check(TokenType::Default)
+                        && !self.check(TokenType::RightBrace)
+                        && !self.is_at_end()
+                    {
                         statements.push(self.parse_statement()?);
                     }
-                    
+
                     cases.push(crate::parser::ast::SwitchCase {
                         value: None,
                         statements,
                     });
-                }
-                else {
+                } else {
                     return Err("Expected 'case' or 'default' in switch statement".to_string());
                 }
             }
-            
+
             self.consume(TokenType::RightBrace, "Expected '}' after switch cases")?;
-            
+
             Ok(Statement::Switch {
                 expression: expr,
                 cases,
             })
-        }
-        else if self.match_token(TokenType::Break) {
+        } else if self.match_token(TokenType::Break) {
             self.consume(TokenType::Semicolon, "Expected ';' after 'break'")?;
             Ok(Statement::Break)
-        }
-        else if self.match_token(TokenType::Continue) {
+        } else if self.match_token(TokenType::Continue) {
             self.consume(TokenType::Semicolon, "Expected ';' after 'continue'")?;
             Ok(Statement::Continue)
-        }
-        else if self.match_token(TokenType::Do) {
+        } else if self.match_token(TokenType::Do) {
             // Parse do-while loop
             let body = Box::new(self.parse_statement()?);
-            
+
             self.consume(TokenType::While, "Expected 'while' after do body")?;
             self.consume(TokenType::LeftParen, "Expected '(' after 'while'")?;
             let condition = self.parse_expression()?;
             self.consume(TokenType::RightParen, "Expected ')' after condition")?;
-            self.consume(TokenType::Semicolon, "Expected ';' after do-while condition")?;
-            
-            Ok(Statement::DoWhile {
-                body,
-                condition,
-            })
-        }
-        else if self.check(TokenType::Int) || self.check(TokenType::Char) {
+            self.consume(
+                TokenType::Semicolon,
+                "Expected ';' after do-while condition",
+            )?;
+
+            Ok(Statement::DoWhile { body, condition })
+        } else if self.check(TokenType::Int) || self.check(TokenType::Char) {
             // Variable declaration
             self.parse_variable_declaration()
-        }
-        else {
+        } else {
             // Expression statement
             let expr = self.parse_expression()?;
             self.consume(TokenType::Semicolon, "Expected ';' after expression")?;
@@ -409,11 +435,11 @@ impl Parser {
 
     fn parse_variable_declaration(&mut self) -> Result<Statement, String> {
         let data_type = self.parse_type()?;
-        
+
         // Handle array declarations
         let name_token = self.consume(TokenType::Identifier, "Expected variable name")?;
         let name = name_token.lexeme.clone();
-        
+
         // Check if it's an array declaration
         if self.match_token(TokenType::LeftBracket) {
             // Array declaration
@@ -422,27 +448,30 @@ impl Parser {
             } else {
                 None
             };
-            
+
             self.consume(TokenType::RightBracket, "Expected ']' after array size")?;
-            
+
             // Handle array initialization
             let initializer = if self.match_token(TokenType::Equal) {
                 if self.match_token(TokenType::LeftBrace) {
                     // Array initializer list
                     let mut elements = Vec::new();
-                    
+
                     if !self.check(TokenType::RightBrace) {
                         loop {
                             elements.push(self.parse_expression()?);
-                            
+
                             if !self.match_token(TokenType::Comma) {
                                 break;
                             }
                         }
                     }
-                    
-                    self.consume(TokenType::RightBrace, "Expected '}' after array initializer")?;
-                    
+
+                    self.consume(
+                        TokenType::RightBrace,
+                        "Expected '}' after array initializer",
+                    )?;
+
                     Expression::ArrayLiteral(elements)
                 } else {
                     self.parse_expression()?
@@ -451,9 +480,12 @@ impl Parser {
                 // Default initialization
                 Expression::ArrayLiteral(Vec::new())
             };
-            
-            self.consume(TokenType::Semicolon, "Expected ';' after variable declaration")?;
-            
+
+            self.consume(
+                TokenType::Semicolon,
+                "Expected ';' after variable declaration",
+            )?;
+
             return Ok(Statement::ArrayDeclaration {
                 name,
                 data_type: Some(data_type),
@@ -461,7 +493,7 @@ impl Parser {
                 initializer,
             });
         }
-        
+
         // Regular variable declaration
         let initializer = if self.match_token(TokenType::Equal) {
             self.parse_expression()?
@@ -473,9 +505,12 @@ impl Parser {
                 _ => Expression::IntegerLiteral(0),
             }
         };
-        
-        self.consume(TokenType::Semicolon, "Expected ';' after variable declaration")?;
-        
+
+        self.consume(
+            TokenType::Semicolon,
+            "Expected ';' after variable declaration",
+        )?;
+
         Ok(Statement::VariableDeclaration {
             name,
             data_type: Some(data_type),
@@ -489,33 +524,33 @@ impl Parser {
 
     fn parse_assignment(&mut self) -> Result<Expression, String> {
         let expr = self.parse_logical_or()?;
-        
+
         if self.match_token(TokenType::Equal) {
             let value = self.parse_assignment()?;
-            
+
             match expr {
                 Expression::Variable(name) => {
                     return Ok(Expression::Assignment {
                         target: Box::new(Expression::Variable(name)),
                         value: Box::new(value),
                     });
-                },
+                }
                 Expression::ArrayAccess { array, index } => {
                     return Ok(Expression::Assignment {
                         target: Box::new(Expression::ArrayAccess { array, index }),
                         value: Box::new(value),
                     });
-                },
+                }
                 _ => return Err("Invalid assignment target".to_string()),
             }
         }
-        
+
         Ok(expr)
     }
 
     fn parse_logical_or(&mut self) -> Result<Expression, String> {
         let mut expr = self.parse_logical_and()?;
-        
+
         while self.match_token(TokenType::Or) {
             let right = self.parse_logical_and()?;
             expr = Expression::BinaryOperation {
@@ -524,13 +559,13 @@ impl Parser {
                 right: Box::new(right),
             };
         }
-        
+
         Ok(expr)
     }
 
     fn parse_logical_and(&mut self) -> Result<Expression, String> {
         let mut expr = self.parse_equality()?;
-        
+
         while self.match_token(TokenType::And) {
             let right = self.parse_equality()?;
             expr = Expression::BinaryOperation {
@@ -539,13 +574,13 @@ impl Parser {
                 right: Box::new(right),
             };
         }
-        
+
         Ok(expr)
     }
 
     fn parse_equality(&mut self) -> Result<Expression, String> {
         let mut expr = self.parse_comparison()?;
-        
+
         while self.match_any(&[TokenType::EqualEqual, TokenType::BangEqual]) {
             let operator = if self.previous().token_type == TokenType::EqualEqual {
                 BinaryOp::Equal
@@ -559,16 +594,18 @@ impl Parser {
                 right: Box::new(right),
             };
         }
-        
+
         Ok(expr)
     }
 
     fn parse_comparison(&mut self) -> Result<Expression, String> {
         let mut expr = self.parse_additive()?;
-        
+
         while self.match_any(&[
-            TokenType::Less, TokenType::LessEqual,
-            TokenType::Greater, TokenType::GreaterEqual
+            TokenType::Less,
+            TokenType::LessEqual,
+            TokenType::Greater,
+            TokenType::GreaterEqual,
         ]) {
             let operator = match self.previous().token_type {
                 TokenType::Less => BinaryOp::LessThan,
@@ -584,7 +621,7 @@ impl Parser {
                 right: Box::new(right),
             };
         }
-        
+
         Ok(expr)
     }
 
@@ -630,7 +667,12 @@ impl Parser {
     }
 
     fn parse_unary(&mut self) -> Result<Expression, String> {
-        if self.match_any(&[TokenType::Bang, TokenType::Minus, TokenType::Increment, TokenType::Decrement]) {
+        if self.match_any(&[
+            TokenType::Bang,
+            TokenType::Minus,
+            TokenType::Increment,
+            TokenType::Decrement,
+        ]) {
             let operator = match self.previous().token_type {
                 TokenType::Bang => super::ast::OperatorType::Binary(BinaryOp::LogicalNot),
                 TokenType::Minus => super::ast::OperatorType::Binary(BinaryOp::Negate),
@@ -644,30 +686,33 @@ impl Parser {
                 operand: Box::new(right),
             });
         }
-        
+
         self.parse_postfix()
     }
 
     fn parse_postfix(&mut self) -> Result<Expression, String> {
         let mut expr = self.parse_primary()?;
-        
+
         loop {
             if self.match_token(TokenType::LeftParen) {
                 // Function call
                 let mut arguments = Vec::new();
-                
+
                 if !self.check(TokenType::RightParen) {
                     loop {
                         arguments.push(self.parse_expression()?);
-                        
+
                         if !self.match_token(TokenType::Comma) {
                             break;
                         }
                     }
                 }
-                
-                self.consume(TokenType::RightParen, "Expected ')' after function arguments")?;
-                
+
+                self.consume(
+                    TokenType::RightParen,
+                    "Expected ')' after function arguments",
+                )?;
+
                 expr = Expression::FunctionCall {
                     name: match expr {
                         Expression::Variable(name) => name,
@@ -675,36 +720,32 @@ impl Parser {
                     },
                     arguments,
                 };
-            }
-            else if self.match_token(TokenType::LeftBracket) {
+            } else if self.match_token(TokenType::LeftBracket) {
                 // Array access
                 let index = self.parse_expression()?;
                 self.consume(TokenType::RightBracket, "Expected ']' after array index")?;
-                
+
                 expr = Expression::ArrayAccess {
                     array: Box::new(expr),
                     index: Box::new(index),
                 };
-            }
-            else if self.match_token(TokenType::Increment) {
+            } else if self.match_token(TokenType::Increment) {
                 // Post-increment
                 expr = Expression::UnaryOperation {
                     operator: super::ast::OperatorType::Binary(BinaryOp::PostIncrement),
                     operand: Box::new(expr),
                 };
-            }
-            else if self.match_token(TokenType::Decrement) {
+            } else if self.match_token(TokenType::Decrement) {
                 // Post-decrement
                 expr = Expression::UnaryOperation {
                     operator: super::ast::OperatorType::Binary(BinaryOp::PostDecrement),
                     operand: Box::new(expr),
                 };
-            }
-            else {
+            } else {
                 break;
             }
         }
-        
+
         Ok(expr)
     }
 
@@ -715,42 +756,49 @@ impl Parser {
                 None => self.previous().lexeme.parse::<i32>().unwrap_or(0),
             };
             Ok(Expression::IntegerLiteral(value))
-        } 
-        else if self.match_token(TokenType::StringLiteral) {
-            let value = self.previous().literal.clone().unwrap_or_else(|| "".to_string());
+        } else if self.match_token(TokenType::StringLiteral) {
+            let value = self
+                .previous()
+                .literal
+                .clone()
+                .unwrap_or_else(|| "".to_string());
             Ok(Expression::StringLiteral(value))
-        }
-        else if self.match_token(TokenType::CharLiteral) {
-            let value = self.previous().literal.clone().unwrap_or_else(|| "".to_string());
+        } else if self.match_token(TokenType::CharLiteral) {
+            let value = self
+                .previous()
+                .literal
+                .clone()
+                .unwrap_or_else(|| "".to_string());
             if value.is_empty() {
                 Ok(Expression::CharLiteral('\0'))
             } else {
                 Ok(Expression::CharLiteral(value.chars().next().unwrap()))
             }
-        }
-        else if self.match_token(TokenType::Identifier) {
+        } else if self.match_token(TokenType::Identifier) {
             // Check if this identifier is a macro that should be expanded
             let name = self.previous().lexeme.clone();
             if self.defines.contains_key(&name) {
                 // In a real implementation, we'd expand the macro here
-                Ok(Expression::StringLiteral(self.defines.get(&name).unwrap().clone()))
+                Ok(Expression::StringLiteral(
+                    self.defines.get(&name).unwrap().clone(),
+                ))
             } else {
                 Ok(Expression::Variable(name))
             }
-        }
-        else if self.match_token(TokenType::LeftParen) {
+        } else if self.match_token(TokenType::LeftParen) {
             let expr = self.parse_expression()?;
             self.consume(TokenType::RightParen, "Expected ')' after expression")?;
             Ok(expr)
-        }
-        else if self.match_token(TokenType::Sizeof) {
+        } else if self.match_token(TokenType::Sizeof) {
             // Parse sizeof operator
             self.consume(TokenType::LeftParen, "Expected '(' after sizeof")?;
             let expr = self.parse_expression()?;
-            self.consume(TokenType::RightParen, "Expected ')' after sizeof expression")?;
+            self.consume(
+                TokenType::RightParen,
+                "Expected ')' after sizeof expression",
+            )?;
             Ok(Expression::SizeOf(Box::new(expr)))
-        }
-        else {
+        } else {
             Err(format!("Expected expression at line {}", self.peek().line))
         }
     }
@@ -766,9 +814,14 @@ impl Parser {
             }
 
             match self.peek().token_type {
-                TokenType::Int | TokenType::Void | TokenType::Char |
-                TokenType::If | TokenType::While | TokenType::For |
-                TokenType::Return | TokenType::Struct => return,
+                TokenType::Int
+                | TokenType::Void
+                | TokenType::Char
+                | TokenType::If
+                | TokenType::While
+                | TokenType::For
+                | TokenType::Return
+                | TokenType::Struct => return,
                 _ => {}
             }
 
@@ -835,7 +888,7 @@ impl Parser {
         // Consume struct name
         let name_token = self.consume(TokenType::Identifier, "Expected struct name")?;
         let name = name_token.lexeme.clone();
-        
+
         // Handle forward declarations
         if self.match_token(TokenType::Semicolon) {
             return Ok(crate::parser::ast::Struct {
@@ -843,16 +896,19 @@ impl Parser {
                 fields: Vec::new(),
             });
         }
-        
+
         self.consume(TokenType::LeftBrace, "Expected '{' after struct name")?;
-        
+
         let mut fields = Vec::new();
-        
+
         // Parse struct fields
         while !self.check(TokenType::RightBrace) && !self.is_at_end() {
             let mut field_type = self.parse_type()?;
-            let field_name = self.consume(TokenType::Identifier, "Expected field name")?.lexeme.clone();
-            
+            let field_name = self
+                .consume(TokenType::Identifier, "Expected field name")?
+                .lexeme
+                .clone();
+
             // Check for array declaration and convert to array type
             if self.match_token(TokenType::LeftBracket) {
                 if !self.check(TokenType::RightBracket) {
@@ -860,25 +916,25 @@ impl Parser {
                     self.parse_expression()?;
                 }
                 self.consume(TokenType::RightBracket, "Expected ']' after array size")?;
-                
+
                 // Convert to array type
                 field_type = Type::Array(Box::new(field_type), None);
             }
-            
+
             self.consume(TokenType::Semicolon, "Expected ';' after field declaration")?;
-            
+
             fields.push(crate::parser::ast::StructField {
                 name: field_name,
                 data_type: field_type,
             });
         }
-        
+
         self.consume(TokenType::RightBrace, "Expected '}' after struct fields")?;
-        self.consume(TokenType::Semicolon, "Expected ';' after struct declaration")?;
-        
-        Ok(crate::parser::ast::Struct {
-            name,
-            fields,
-        })
+        self.consume(
+            TokenType::Semicolon,
+            "Expected ';' after struct declaration",
+        )?;
+
+        Ok(crate::parser::ast::Struct { name, fields })
     }
 }
