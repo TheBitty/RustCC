@@ -141,3 +141,9 @@ impl X86_64Generator {
         self.output.push('\n');
     }
 }
+
+impl Default for X86_64Generator {
+    fn default() -> Self {
+        Self::new()
+    }
+}

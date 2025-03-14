@@ -100,7 +100,7 @@ impl Lexer {
                     }
                 } else if self.match_char('*') {
                     // A block comment goes until */
-                    while !(self.peek() == '*' && self.peek_next() == '/') && !self.is_at_end() {
+                    while !(self.is_at_end() || self.peek() == '*' && self.peek_next() == '/') {
                         if self.peek() == '\n' {
                             self.line += 1;
                             self.column = 0;

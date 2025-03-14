@@ -4,7 +4,7 @@ use std::fs;
 use std::path::Path;
 
 /// Configuration for the RustCC compiler
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     /// Optimization configuration
     #[serde(default)]
@@ -79,12 +79,41 @@ pub struct OutputConfig {
     pub debug_info: bool,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Config {
-            optimization: OptimizationConfig::default(),
-            obfuscation: ObfuscationConfig::default(),
-            output: OutputConfig::default(),
+impl Config {
+    /// Load configuration from a file
+    #[allow(dead_code)]
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, String> {
+        let content =
+            fs::read_to_string(&path).map_err(|e| format!("Failed to read config file: {}", e))?;
+
+        match path.as_ref().extension().and_then(|ext| ext.to_str()) {
+            Some("toml") => {
+                toml::from_str(&content).map_err(|e| format!("Failed to parse TOML config: {}", e))
+            }
+            Some("json") => serde_json::from_str(&content)
+                .map_err(|e| format!("Failed to parse JSON config: {}", e)),
+            Some(ext) => Err(format!("Unsupported config file extension: {}", ext)),
+            None => Err("Config file has no extension".to_string()),
+        }
+    }
+
+    /// Get the optimization level from the configuration
+    pub fn get_optimization_level(&self) -> OptimizationLevel {
+        match self.optimization.level.to_lowercase().as_str() {
+            "none" => OptimizationLevel::None,
+            "basic" => OptimizationLevel::Basic,
+            "full" => OptimizationLevel::Full,
+            _ => OptimizationLevel::None,
+        }
+    }
+
+    /// Get the obfuscation level from the configuration
+    pub fn get_obfuscation_level(&self) -> ObfuscationLevel {
+        match self.obfuscation.level.to_lowercase().as_str() {
+            "none" => ObfuscationLevel::None,
+            "basic" => ObfuscationLevel::Basic,
+            "aggressive" => ObfuscationLevel::Aggressive,
+            _ => ObfuscationLevel::None,
         }
     }
 }
@@ -156,43 +185,4 @@ fn default_true() -> bool {
 
 fn default_false() -> bool {
     false
-}
-
-impl Config {
-    /// Load configuration from a file
-    #[allow(dead_code)]
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, String> {
-        let content =
-            fs::read_to_string(&path).map_err(|e| format!("Failed to read config file: {}", e))?;
-
-        match path.as_ref().extension().and_then(|ext| ext.to_str()) {
-            Some("toml") => {
-                toml::from_str(&content).map_err(|e| format!("Failed to parse TOML config: {}", e))
-            }
-            Some("json") => serde_json::from_str(&content)
-                .map_err(|e| format!("Failed to parse JSON config: {}", e)),
-            Some(ext) => Err(format!("Unsupported config file extension: {}", ext)),
-            None => Err("Config file has no extension".to_string()),
-        }
-    }
-
-    /// Get the optimization level from the configuration
-    pub fn get_optimization_level(&self) -> OptimizationLevel {
-        match self.optimization.level.to_lowercase().as_str() {
-            "none" => OptimizationLevel::None,
-            "basic" => OptimizationLevel::Basic,
-            "full" => OptimizationLevel::Full,
-            _ => OptimizationLevel::None,
-        }
-    }
-
-    /// Get the obfuscation level from the configuration
-    pub fn get_obfuscation_level(&self) -> ObfuscationLevel {
-        match self.obfuscation.level.to_lowercase().as_str() {
-            "none" => ObfuscationLevel::None,
-            "basic" => ObfuscationLevel::Basic,
-            "aggressive" => ObfuscationLevel::Aggressive,
-            _ => ObfuscationLevel::None,
-        }
-    }
 }

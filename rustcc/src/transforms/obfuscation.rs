@@ -928,8 +928,7 @@ impl StringEncryptor {
                 let encrypted: String = s
                     .chars()
                     .map(|c| {
-                        let encrypted_char = (c as u8 ^ key as u8) as char;
-                        encrypted_char
+                        (c as u8 ^ key as u8) as char
                     })
                     .collect();
 
