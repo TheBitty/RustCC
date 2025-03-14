@@ -1,9 +1,9 @@
 // literals.rs
 // Handling of string, character, and numeric literals
 
-use crate::parser::token::TokenType;
+use crate::parser::lexer::utils::{is_digit, is_hex_digit, is_octal_digit};
 use crate::parser::lexer::Lexer;
-use crate::parser::lexer::utils::{is_digit, is_hex_digit, is_octal_digit, is_whitespace};
+use crate::parser::token::TokenType;
 
 impl Lexer {
     /// Handles string literals
@@ -15,8 +15,10 @@ impl Lexer {
                 self.string_with_type(TokenType::U32StringLiteral);
                 return;
             } else if prev_char == 'u' {
-                if self.current > 2 && self.source.chars().nth(self.current - 3).unwrap_or('\0') == 'u' 
-                   && self.source.chars().nth(self.current - 2).unwrap_or('\0') == '8' {
+                if self.current > 2
+                    && self.source.chars().nth(self.current - 3).unwrap_or('\0') == 'u'
+                    && self.source.chars().nth(self.current - 2).unwrap_or('\0') == '8'
+                {
                     // Handle u8"string"
                     self.string_with_type(TokenType::U8StringLiteral);
                     return;
@@ -73,7 +75,7 @@ impl Lexer {
                     'x' => {
                         // Hex escape sequence \xHH
                         self.advance(); // Consume 'x'
-                        // Read up to 2 hex digits
+                                        // Read up to 2 hex digits
                         for _ in 0..2 {
                             if is_hex_digit(self.peek()) {
                                 self.advance();
@@ -154,7 +156,7 @@ impl Lexer {
     pub(crate) fn string_with_type(&mut self, token_type: TokenType) {
         // This method handles prefixed string literals like L"string", u"string", etc.
         // The prefix and opening quote have already been consumed
-        
+
         // Read until closing quote or end of file
         while !self.is_at_end() && self.peek() != '"' {
             if self.peek() == '\n' {
@@ -175,7 +177,7 @@ impl Lexer {
                     'x' => {
                         // Hex escape sequence \xHH
                         self.advance(); // Consume 'x'
-                        // Read up to 2 hex digits
+                                        // Read up to 2 hex digits
                         for _ in 0..2 {
                             if is_hex_digit(self.peek()) {
                                 self.advance();
@@ -189,7 +191,7 @@ impl Lexer {
                         self.advance(); // Consume 'u'
                         if self.peek() == '{' {
                             self.advance(); // Consume '{'
-                            // Read up to 6 hex digits
+                                            // Read up to 6 hex digits
                             let mut count = 0;
                             while is_hex_digit(self.peek()) && count < 6 {
                                 self.advance();
@@ -213,7 +215,7 @@ impl Lexer {
                     'U' => {
                         // 8-digit Unicode escape \UHHHHHHHH
                         self.advance(); // Consume 'U'
-                        // Read 8 hex digits
+                                        // Read 8 hex digits
                         for _ in 0..8 {
                             if is_hex_digit(self.peek()) {
                                 self.advance();
@@ -261,7 +263,7 @@ impl Lexer {
     pub(crate) fn char_literal_with_type(&mut self, token_type: TokenType) {
         // This method handles prefixed char literals like L'x', u'x', etc.
         // The prefix and opening quote have already been consumed
-        
+
         // Read until closing quote or end of file
         while !self.is_at_end() && self.peek() != '\'' {
             if self.peek() == '\n' {
@@ -322,8 +324,7 @@ impl Lexer {
             let value = self.source[self.start..self.current].to_string();
             self.add_token_with_literal(TokenType::IntegerLiteral, value);
             return;
-        } else if self.source.chars().nth(self.start).unwrap() == '0'
-            && is_octal_digit(self.peek())
+        } else if self.source.chars().nth(self.start).unwrap() == '0' && is_octal_digit(self.peek())
         {
             // Octal literal (0...)
             // Read octal digits
@@ -381,7 +382,7 @@ impl Lexer {
         if self.peek() == 'f' || self.peek() == 'F' || self.peek() == 'l' || self.peek() == 'L' {
             is_float = true;
             self.advance();
-        } 
+        }
         // Look for an integer type suffix (U, L, UL, LL, etc.)
         else if self.peek() == 'u' || self.peek() == 'U' {
             self.advance();
@@ -403,7 +404,7 @@ impl Lexer {
 
         // Extract the value
         let value = self.source[self.start..self.current].to_string();
-        
+
         // Add the token with the appropriate type
         if is_float {
             self.add_token_with_literal(TokenType::FloatLiteral, value);
@@ -411,4 +412,4 @@ impl Lexer {
             self.add_token_with_literal(TokenType::IntegerLiteral, value);
         }
     }
-} 
+}

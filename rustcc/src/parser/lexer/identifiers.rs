@@ -1,9 +1,9 @@
 // identifiers.rs
 // Handling of identifiers and keywords
 
-use crate::parser::token::TokenType;
-use crate::parser::lexer::Lexer;
 use crate::parser::lexer::utils::is_alphanumeric;
+use crate::parser::lexer::Lexer;
+use crate::parser::token::TokenType;
 
 impl Lexer {
     /// Handles an identifier (or keyword)
@@ -21,4 +21,4 @@ impl Lexer {
             self.add_token_with_literal(TokenType::Identifier, text);
         }
     }
-} 
+}

@@ -1,15 +1,21 @@
 use crate::parser::ast::{Expression, Function, FunctionParameter, Statement, StructField, Type};
-use crate::parser::Parser;
+use crate::parser::error::{Error, ErrorKind, Result};
 use crate::parser::token::TokenType;
+use crate::parser::Parser;
 
 impl Parser {
-    pub fn parse_function_with_name(&mut self, return_type: Type, name: String) -> Result<Function, String> {
+    /// Parse a function declaration or definition
+    pub fn parse_function_with_name(
+        &mut self,
+        return_type: Type,
+        name: String,
+    ) -> Result<Function> {
         self.consume(TokenType::LeftParen, "Expected '(' after function name")?;
 
         // Parse parameters list
         let mut parameters = Vec::new();
         let mut is_variadic = false;
-        
+
         if !self.check(TokenType::RightParen) {
             loop {
                 // Check for variadic functions with ...
@@ -18,7 +24,13 @@ impl Parser {
                         is_variadic = true;
                         break;
                     } else {
-                        return Err("Expected '...' for variadic function".to_string());
+                        return Err(Error::from_token(
+                            ErrorKind::InvalidDeclaration(
+                                "Expected '...' for variadic function".to_string(),
+                            ),
+                            &self.previous(),
+                            "Expected '...' for variadic function".to_string(),
+                        ));
                     }
                 }
 
@@ -73,15 +85,23 @@ impl Parser {
         })
     }
 
-    pub fn parse_global_variable_with_name(&mut self, data_type: Type, name: String) -> Result<Statement, String> {
+    /// Parse a global variable declaration
+    pub fn parse_global_variable_with_name(
+        &mut self,
+        data_type: Type,
+        name: String,
+    ) -> Result<Statement> {
         let mut initializer = Expression::IntegerLiteral(0); // Default initializer
-        
+
         if self.match_token(TokenType::Equal) {
             initializer = self.parse_expression()?;
         }
-        
-        self.consume(TokenType::Semicolon, "Expected ';' after variable declaration")?;
-        
+
+        self.consume(
+            TokenType::Semicolon,
+            "Expected ';' after variable declaration",
+        )?;
+
         Ok(Statement::VariableDeclaration {
             name,
             data_type: Some(data_type),
@@ -90,7 +110,8 @@ impl Parser {
         })
     }
 
-    pub fn parse_variable_declaration(&mut self) -> Result<Statement, String> {
+    /// Parse a variable declaration
+    pub fn parse_variable_declaration(&mut self) -> Result<Statement> {
         let data_type = self.parse_type()?;
 
         // Handle array declarations
@@ -177,48 +198,14 @@ impl Parser {
         })
     }
 
-    pub fn parse_type(&mut self) -> Result<Type, String> {
-        // Handle const qualifier
-        let is_const = self.match_token(TokenType::Const);
-        
-        let base_type = if self.match_token(TokenType::Int) {
-            Type::Int
-        } else if self.match_token(TokenType::Void) {
-            Type::Void
-        } else if self.match_token(TokenType::Char) {
-            Type::Char
-        } else if self.match_token(TokenType::Struct) {
-            // Handle struct types
-            let name = self
-                .consume(TokenType::Identifier, "Expected struct name")?
-                .lexeme
-                .clone();
-            Type::Struct(name)
-        } else {
-            return Err("Expected type".to_string());
-        };
-        
-        // Apply const qualifier if present
-        let mut result_type = if is_const {
-            Type::Const(Box::new(base_type))
-        } else {
-            base_type
-        };
-        
-        // Handle pointer types (possibly multiple levels)
-        while self.match_token(TokenType::Star) {
-            result_type = Type::Pointer(Box::new(result_type));
-        }
-        
-        Ok(result_type)
-    }
+    /// Parse a struct declaration
+    pub fn parse_struct(&mut self) -> Result<crate::parser::ast::Struct> {
+        let name = self
+            .consume(TokenType::Identifier, "Expected struct name")?
+            .lexeme
+            .clone();
 
-    pub fn parse_struct(&mut self) -> Result<crate::parser::ast::Struct, String> {
-        // Consume struct name
-        let name_token = self.consume(TokenType::Identifier, "Expected struct name")?;
-        let name = name_token.lexeme.clone();
-
-        // Handle forward declarations
+        // Check if this is just a forward declaration
         if self.match_token(TokenType::Semicolon) {
             return Ok(crate::parser::ast::Struct {
                 name,
@@ -230,32 +217,53 @@ impl Parser {
 
         let mut fields = Vec::new();
 
-        // Parse struct fields
         while !self.check(TokenType::RightBrace) && !self.is_at_end() {
-            let mut field_type = self.parse_type()?;
-            let field_name = self
-                .consume(TokenType::Identifier, "Expected field name")?
-                .lexeme
-                .clone();
+            // Parse field type
+            let field_type = self.parse_type()?;
 
-            // Check for array declaration and convert to array type
-            if self.match_token(TokenType::LeftBracket) {
-                if !self.check(TokenType::RightBracket) {
-                    // Parse size expression, but ignore it for now
-                    self.parse_expression()?;
+            // Parse field names (can have multiple fields of the same type)
+            loop {
+                let field_name = self
+                    .consume(TokenType::Identifier, "Expected field name")?
+                    .lexeme
+                    .clone();
+
+                // Check for array field
+                let field_type = if self.match_token(TokenType::LeftBracket) {
+                    let array_type = self.parse_array_type(field_type.clone())?;
+                    array_type
+                } else {
+                    field_type.clone()
+                };
+
+                fields.push(StructField {
+                    name: field_name,
+                    data_type: field_type,
+                });
+
+                // Check if there are more fields of this type
+                if !self.match_token(TokenType::Comma) {
+                    break;
                 }
-                self.consume(TokenType::RightBracket, "Expected ']' after array size")?;
 
-                // Convert to array type
-                field_type = Type::Array(Box::new(field_type), None);
+                // If we see a right brace after a comma, it's a syntax error
+                if self.check(TokenType::RightBrace) {
+                    return Err(Error::from_token(
+                        ErrorKind::InvalidDeclaration(
+                            "Expected field name after comma".to_string(),
+                        ),
+                        &self.peek(),
+                        "Expected field name after comma in struct declaration".to_string(),
+                    ));
+                }
+
+                // If we see a type specifier after a comma, it's the start of a new field declaration
+                if self.is_type_specifier() {
+                    break;
+                }
             }
 
-            self.consume(TokenType::Semicolon, "Expected ';' after field declaration")?;
-
-            fields.push(StructField {
-                name: field_name,
-                data_type: field_type,
-            });
+            self.consume(TokenType::Semicolon, "Expected ';' after struct field")?;
         }
 
         self.consume(TokenType::RightBrace, "Expected '}' after struct fields")?;
@@ -266,4 +274,77 @@ impl Parser {
 
         Ok(crate::parser::ast::Struct { name, fields })
     }
-} 
+
+    /// Parse a typedef declaration
+    pub fn parse_typedef(&mut self) -> Result<()> {
+        // Skip the 'typedef' keyword (already consumed)
+
+        // Parse the base type
+        let _base_type = self.parse_type()?;
+
+        // Parse the new type name
+        let _new_type_name = self
+            .consume(TokenType::Identifier, "Expected new type name")?
+            .lexeme
+            .clone();
+
+        self.consume(TokenType::Semicolon, "Expected ';' after typedef")?;
+
+        // In a full implementation, we would register this typedef in a symbol table
+        // For now, we'll just acknowledge it
+
+        Ok(())
+    }
+
+    /// Parse an enum declaration
+    pub fn parse_enum(&mut self) -> Result<()> {
+        // Skip the 'enum' keyword (already consumed)
+
+        // Parse the enum name (optional)
+        let _enum_name = if self.check(TokenType::Identifier) {
+            Some(self.consume(TokenType::Identifier, "")?.lexeme.clone())
+        } else {
+            None
+        };
+
+        self.consume(TokenType::LeftBrace, "Expected '{' after enum name")?;
+
+        let mut _value = 0; // Track the implicit enum value
+
+        // Parse enum constants
+        while !self.check(TokenType::RightBrace) {
+            let _const_name = self
+                .consume(TokenType::Identifier, "Expected enum constant name")?
+                .lexeme
+                .clone();
+
+            // Check for explicit value
+            if self.match_token(TokenType::Equal) {
+                let expr = self.parse_expression()?;
+
+                // In a full implementation, we would evaluate the constant expression
+                // For now, we'll just acknowledge it
+                if let Expression::IntegerLiteral(val) = expr {
+                    _value = val;
+                }
+            }
+
+            _value += 1; // Increment for next constant
+
+            // Check for comma
+            if !self.match_token(TokenType::Comma) {
+                break;
+            }
+
+            // Allow trailing comma
+            if self.check(TokenType::RightBrace) {
+                break;
+            }
+        }
+
+        self.consume(TokenType::RightBrace, "Expected '}' after enum constants")?;
+        self.consume(TokenType::Semicolon, "Expected ';' after enum declaration")?;
+
+        Ok(())
+    }
+}

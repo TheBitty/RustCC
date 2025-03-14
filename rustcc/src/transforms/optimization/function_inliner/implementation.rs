@@ -1,9 +1,8 @@
+use super::call_graph::CallGraph;
+use super::inliner::Inliner;
+use super::recursion::RecursionDetector;
 use crate::parser::ast::{Function, Program};
 use crate::transforms::Transform;
-use super::recursion::RecursionDetector;
-use super::call_graph::CallGraph;
-use super::variable_renamer::VariableRenamer;
-use super::inliner::Inliner;
 
 /// Function Inliner transform
 /// Performs function inlining for small, non-recursive functions

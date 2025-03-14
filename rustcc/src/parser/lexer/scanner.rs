@@ -1,9 +1,9 @@
 // scanner.rs
 // Core scanning functionality for the lexer
 
-use crate::parser::token::{Token, TokenType};
-use crate::parser::lexer::utils::{is_alpha, is_digit, is_alphanumeric, is_whitespace};
+use crate::parser::lexer::utils::{is_alpha, is_digit};
 use crate::parser::lexer::Lexer;
+use crate::parser::token::{Token, TokenType};
 
 impl Lexer {
     /// Returns whether the scanner has reached the end of the source
@@ -111,7 +111,7 @@ impl Lexer {
             ']' => self.add_token(TokenType::RightBracket),
             ';' => self.add_token(TokenType::Semicolon),
             ',' => self.add_token(TokenType::Comma),
-            
+
             // Potentially multi-character tokens
             '.' => self.handle_dot(),
             ':' => self.add_token(TokenType::Colon),
@@ -130,17 +130,17 @@ impl Lexer {
             '^' => self.handle_caret(),
             '~' => self.add_token(TokenType::Tilde),
             '#' => self.handle_hash(),
-            
+
             // Whitespace
             ' ' | '\r' | '\t' => {
                 // Whitespace doesn't affect line start status
-            },
+            }
             '\n' => {
                 self.line += 1;
                 self.column = 1;
                 self.at_line_start = true;
-            },
-            
+            }
+
             // Literals and identifiers
             '"' => self.handle_string_literal(),
             '\'' => self.handle_char_literal(),
@@ -160,4 +160,4 @@ impl Lexer {
             self.at_line_start = false;
         }
     }
-} 
+}

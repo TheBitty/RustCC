@@ -1,8 +1,8 @@
-pub mod parser;
 pub mod analyzer;
 pub mod codegen;
 pub mod compiler;
 pub mod config;
+pub mod parser;
 pub mod transforms;
 
 // Re-export key components

@@ -129,7 +129,9 @@ impl VariableRenamer {
                 Self::rename_variables_in_expr(then_expr, prefix, parameters);
                 Self::rename_variables_in_expr(else_expr, prefix, parameters);
             }
-            Expression::Cast { expr: inner_expr, .. } => {
+            Expression::Cast {
+                expr: inner_expr, ..
+            } => {
                 Self::rename_variables_in_expr(inner_expr, prefix, parameters);
             }
             Expression::SizeOf(expr_box) => {
@@ -154,4 +156,4 @@ impl VariableRenamer {
             _ => {}
         }
     }
-} 
+}

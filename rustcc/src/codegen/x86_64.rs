@@ -52,10 +52,18 @@ impl X86_64Generator {
             self.generate_statement(statement);
         }
 
+        // Check if the function already has a return statement
+        let has_return = function
+            .body
+            .iter()
+            .any(|stmt| matches!(stmt, Statement::Return(_)));
+
         // Function epilogue (if not already returned)
-        self.emit_line("    mov %rbp, %rsp");
-        self.emit_line("    pop %rbp");
-        self.emit_line("    ret");
+        if !has_return {
+            self.emit_line("    mov %rbp, %rsp");
+            self.emit_line("    pop %rbp");
+            self.emit_line("    ret");
+        }
     }
 
     fn generate_statement(&mut self, statement: &Statement) {

@@ -69,7 +69,11 @@ impl CallGraph {
                     Self::find_called_functions_in_statement(stmt, called_functions);
                 }
             }
-            Statement::If { condition, then_block, else_block } => {
+            Statement::If {
+                condition,
+                then_block,
+                else_block,
+            } => {
                 Self::find_called_functions_in_expr(condition, called_functions);
                 Self::find_called_functions_in_statement(then_block, called_functions);
                 if let Some(else_stmt) = else_block {
@@ -84,7 +88,12 @@ impl CallGraph {
                 Self::find_called_functions_in_statement(body, called_functions);
                 Self::find_called_functions_in_expr(condition, called_functions);
             }
-            Statement::For { initializer, condition, increment, body } => {
+            Statement::For {
+                initializer,
+                condition,
+                increment,
+                body,
+            } => {
                 if let Some(init) = initializer {
                     Self::find_called_functions_in_statement(init, called_functions);
                 }
@@ -107,7 +116,9 @@ impl CallGraph {
             Statement::VariableDeclaration { initializer, .. } => {
                 Self::find_called_functions_in_expr(initializer, called_functions);
             }
-            Statement::ArrayDeclaration { initializer, size, .. } => {
+            Statement::ArrayDeclaration {
+                initializer, size, ..
+            } => {
                 Self::find_called_functions_in_expr(initializer, called_functions);
                 if let Some(size_expr) = size {
                     Self::find_called_functions_in_expr(size_expr, called_functions);
@@ -118,10 +129,7 @@ impl CallGraph {
         }
     }
 
-    fn find_called_functions_in_expr(
-        expr: &Expression,
-        called_functions: &mut HashSet<String>,
-    ) {
+    fn find_called_functions_in_expr(expr: &Expression, called_functions: &mut HashSet<String>) {
         match expr {
             Expression::FunctionCall { name, arguments } => {
                 called_functions.insert(name.clone());
@@ -140,12 +148,18 @@ impl CallGraph {
                 Self::find_called_functions_in_expr(target, called_functions);
                 Self::find_called_functions_in_expr(value, called_functions);
             }
-            Expression::TernaryIf { condition, then_expr, else_expr } => {
+            Expression::TernaryIf {
+                condition,
+                then_expr,
+                else_expr,
+            } => {
                 Self::find_called_functions_in_expr(condition, called_functions);
                 Self::find_called_functions_in_expr(then_expr, called_functions);
                 Self::find_called_functions_in_expr(else_expr, called_functions);
             }
-            Expression::Cast { expr: inner_expr, .. } => {
+            Expression::Cast {
+                expr: inner_expr, ..
+            } => {
                 Self::find_called_functions_in_expr(inner_expr, called_functions);
             }
             Expression::ArrayAccess { array, index } => {
@@ -231,4 +245,4 @@ impl CallGraph {
         visited.insert(node.to_string());
         result.push(node.to_string());
     }
-} 
+}

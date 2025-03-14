@@ -147,10 +147,7 @@ impl StringEncryptor {
             Expression::StringLiteral(s) => {
                 // Apply XOR encryption on the string
                 let key = rng.gen::<u8>() as char;
-                let encrypted: String = s
-                    .chars()
-                    .map(|c| (c as u8 ^ key as u8) as char)
-                    .collect();
+                let encrypted: String = s.chars().map(|c| (c as u8 ^ key as u8) as char).collect();
 
                 // We'd need to modify the compiler to handle this properly at runtime
                 // For now we're just replacing the string with a placeholder
@@ -213,4 +210,4 @@ impl StringEncryptor {
             _ => expr,
         }
     }
-} 
+}

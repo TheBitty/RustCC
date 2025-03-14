@@ -29,4 +29,4 @@ pub fn is_octal_digit(c: char) -> bool {
 /// Returns whether the given character is a whitespace character (space, tab, carriage return)
 pub fn is_whitespace(c: char) -> bool {
     c == ' ' || c == '\t' || c == '\r'
-} 
+}

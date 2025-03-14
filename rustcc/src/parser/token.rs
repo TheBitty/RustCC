@@ -18,16 +18,16 @@ pub enum TokenType {
     Float,
     Double,
     Void,
-    Bool, // _Bool in C99+
-    Complex, // _Complex in C99+
+    Bool,      // _Bool in C99+
+    Complex,   // _Complex in C99+
     Imaginary, // _Imaginary in C99+
-    
+
     // Type qualifiers
     Const,
     Volatile,
     Restrict, // C99+
-    Atomic, // C11+
-    
+    Atomic,   // C11+
+
     // Storage class specifiers
     Auto,
     Register,
@@ -35,7 +35,7 @@ pub enum TokenType {
     Extern,
     Typedef,
     ThreadLocal, // _Thread_local in C11+
-    
+
     // Control flow
     If,
     Else,
@@ -49,42 +49,42 @@ pub enum TokenType {
     Default,
     Do,
     Goto,
-    
+
     // Other keywords
     Sizeof,
-    Alignas, // C11+
-    Alignof, // C11+
-    Generic, // _Generic in C11+
-    Noreturn, // _Noreturn in C11+
+    Alignas,      // C11+
+    Alignof,      // C11+
+    Generic,      // _Generic in C11+
+    Noreturn,     // _Noreturn in C11+
     StaticAssert, // _Static_assert in C11+
-    
+
     // Struct/Union
     Struct,
     Union,
     Enum,
-    
+
     // Function specifiers
     Inline, // C99+
-    
+
     // Unsigned type specifier
     Unsigned,
     Signed,
-    
+
     // Identifiers and literals
     Identifier,
     IntegerLiteral,
     FloatLiteral,
     CharLiteral,
     StringLiteral,
-    
+
     // Special string literals
-    UCharLiteral, // u'x' - C11+
-    UStringLiteral, // u"..." - C11+
-    U8StringLiteral, // u8"..." - C11+
+    UCharLiteral,     // u'x' - C11+
+    UStringLiteral,   // u"..." - C11+
+    U8StringLiteral,  // u8"..." - C11+
     U16StringLiteral, // U"..." - C11+
     U32StringLiteral, // L"..." - wide string
-    WideLiteral, // L'x' - wide char
-    
+    WideLiteral,      // L'x' - wide char
+
     // Operators
     Plus,
     Minus,
@@ -112,26 +112,26 @@ pub enum TokenType {
     Tilde,
     ShiftLeft,
     ShiftRight, // Bitwise operators
-    Question, // Ternary operator ?
-    
+    Question,   // Ternary operator ?
+
     // Compound assignment operators
     ShiftLeftEqual,
     ShiftRightEqual,
     AmpersandEqual,
     PipeEqual,
     CaretEqual,
-    
+
     // Increment/decrement operators
     Increment, // ++
     Decrement, // --
-    
+
     // Structure access
     Arrow, // ->
-    
+
     // Preprocessor token operators
     PPHashHash, // ## token concatenation
-    PPHash, // # stringification
-    
+    PPHash,     // # stringification
+
     // Delimiters
     LeftParen,
     RightParen, // ( )
@@ -141,10 +141,10 @@ pub enum TokenType {
     RightBracket, // [ ]
     Semicolon,
     Comma,
-    Dot,   // ; , .
-    Colon, // :
+    Dot,      // ; , .
+    Colon,    // :
     Ellipsis, // ... for variadic functions
-    
+
     // Preprocessor directives
     Hash, // # symbol at start of line
     PPInclude,
@@ -160,8 +160,64 @@ pub enum TokenType {
     PPErrorDir,
     PPWarning,
     PPLine, // #line directive
-    
+
     // Special tokens
     Eof,
     Error,
+
+    // Aliases for logical operators
+    LogicalOr,  // Alias for Or
+    LogicalAnd, // Alias for And
+
+    // Aliases for bitwise operators
+    BitwiseOr,  // Alias for Pipe
+    BitwiseAnd, // Alias for Ampersand
+    BitwiseXor, // Alias for Caret
+
+    // Aliases for shift operators
+    LeftShift,  // Alias for ShiftLeft
+    RightShift, // Alias for ShiftRight
+
+    // Aliases for increment/decrement operators
+    PlusPlus,   // Alias for Increment
+    MinusMinus, // Alias for Decrement
+}
+
+// Implement aliases for token types to maintain compatibility
+impl TokenType {
+    pub fn is_logical_or(&self) -> bool {
+        matches!(self, TokenType::Or | TokenType::LogicalOr)
+    }
+
+    pub fn is_logical_and(&self) -> bool {
+        matches!(self, TokenType::And | TokenType::LogicalAnd)
+    }
+
+    pub fn is_bitwise_or(&self) -> bool {
+        matches!(self, TokenType::Pipe | TokenType::BitwiseOr)
+    }
+
+    pub fn is_bitwise_and(&self) -> bool {
+        matches!(self, TokenType::Ampersand | TokenType::BitwiseAnd)
+    }
+
+    pub fn is_bitwise_xor(&self) -> bool {
+        matches!(self, TokenType::Caret | TokenType::BitwiseXor)
+    }
+
+    pub fn is_left_shift(&self) -> bool {
+        matches!(self, TokenType::ShiftLeft | TokenType::LeftShift)
+    }
+
+    pub fn is_right_shift(&self) -> bool {
+        matches!(self, TokenType::ShiftRight | TokenType::RightShift)
+    }
+
+    pub fn is_increment(&self) -> bool {
+        matches!(self, TokenType::Increment | TokenType::PlusPlus)
+    }
+
+    pub fn is_decrement(&self) -> bool {
+        matches!(self, TokenType::Decrement | TokenType::MinusMinus)
+    }
 }

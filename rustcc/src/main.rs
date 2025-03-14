@@ -1,8 +1,8 @@
-mod parser;
 mod analyzer;
 mod codegen;
 mod compiler;
 mod config;
+mod parser;
 mod transforms;
 
 use crate::compiler::{Compiler, ObfuscationLevel, OptimizationLevel};

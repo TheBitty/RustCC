@@ -287,4 +287,4 @@ impl ControlFlowObfuscator {
             function.body = vec![predicated_flow];
         }
     }
-} 
+}

@@ -1,9 +1,9 @@
 // preprocessor.rs
 // Handling of preprocessor directives
 
-use crate::parser::token::TokenType;
+use crate::parser::lexer::utils::{is_alpha, is_alphanumeric, is_digit, is_whitespace};
 use crate::parser::lexer::Lexer;
-use crate::parser::lexer::utils::{is_alpha, is_digit, is_alphanumeric, is_whitespace};
+use crate::parser::token::TokenType;
 
 impl Lexer {
     /// Handles a preprocessor directive
@@ -32,15 +32,15 @@ impl Lexer {
             "include" => {
                 self.add_token(TokenType::PPInclude);
                 self.handle_include_directive();
-            },
+            }
             "define" => {
                 self.add_token(TokenType::PPDefine);
                 self.handle_define_directive();
-            },
+            }
             "undef" => {
                 self.add_token(TokenType::PPUndef);
                 self.handle_undef_directive();
-            },
+            }
             "ifdef" => self.add_token(TokenType::PPIfDef),
             "ifndef" => self.add_token(TokenType::PPIfNDef),
             "if" => self.add_token(TokenType::PPIf),
@@ -50,19 +50,19 @@ impl Lexer {
             "pragma" => {
                 self.add_token(TokenType::PPPragma);
                 self.handle_pragma_directive();
-            },
+            }
             "error" => {
                 self.add_token(TokenType::PPErrorDir);
                 self.handle_error_directive();
-            },
+            }
             "warning" => {
                 self.add_token(TokenType::PPWarning);
                 self.handle_warning_directive();
-            },
+            }
             "line" => {
                 self.add_token(TokenType::PPLine);
                 self.handle_line_directive();
-            },
+            }
             _ => self.add_token(TokenType::Error),
         }
     }
@@ -208,24 +208,24 @@ impl Lexer {
     /// Processes a macro replacement value
     pub(crate) fn process_macro_replacement(&mut self) {
         self.start = self.current;
-        let mut nesting_level = 0;
+        let mut _nesting_level = 0;
         let mut in_string = false;
         let mut in_char_literal = false;
-        
+
         // Process until end of line, handling any escape sequences or string literals
         while !self.is_at_end() && self.peek() != '\n' {
             let c = self.peek();
-            
+
             // Handle string literals
             if c == '"' && !in_char_literal {
                 in_string = !in_string;
             }
-            
+
             // Handle character literals
             if c == '\'' && !in_string {
                 in_char_literal = !in_char_literal;
             }
-            
+
             // Handle escape sequences in strings or character literals
             if (in_string || in_char_literal) && c == '\\' {
                 self.advance(); // Consume the backslash
@@ -234,7 +234,7 @@ impl Lexer {
                     continue;
                 }
             }
-            
+
             // Handle preprocessor stringification (#) and token concatenation (##) operators
             if !in_string && !in_char_literal {
                 if c == '#' {
@@ -243,9 +243,9 @@ impl Lexer {
                         let text = self.source[self.start..self.current].to_string();
                         self.add_token_with_literal(TokenType::Identifier, text);
                     }
-                    
+
                     self.advance(); // Consume '#'
-                    
+
                     // Check for ## (token concatenation)
                     if self.peek() == '#' {
                         self.advance(); // Consume second '#'
@@ -254,22 +254,22 @@ impl Lexer {
                         // Single # (stringification)
                         self.add_token(TokenType::PPHash);
                     }
-                    
+
                     self.start = self.current;
                     continue;
                 }
-                
+
                 // Keep track of nesting parentheses for complex expressions
                 if c == '(' {
-                    nesting_level += 1;
+                    _nesting_level += 1;
                 } else if c == ')' {
-                    nesting_level -= 1;
+                    _nesting_level -= 1;
                 }
             }
-            
+
             self.advance();
         }
-        
+
         // Add any remaining text as a token
         if self.start < self.current {
             let value = self.source[self.start..self.current].to_string();
@@ -399,4 +399,4 @@ impl Lexer {
             self.add_token(TokenType::Error);
         }
     }
-} 
+}

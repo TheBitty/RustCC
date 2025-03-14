@@ -34,7 +34,11 @@ impl RecursionDetector {
                 false
             }
             Statement::Return(expr) => Self::has_recursive_call_in_expr(expr, function_name),
-            Statement::If { condition, then_block, else_block } => {
+            Statement::If {
+                condition,
+                then_block,
+                else_block,
+            } => {
                 Self::has_recursive_call_in_expr(condition, function_name)
                     || Self::has_recursive_call(then_block, function_name)
                     || if let Some(else_stmt) = else_block {
@@ -82,7 +86,9 @@ impl RecursionDetector {
             Statement::VariableDeclaration { initializer, .. } => {
                 Self::has_recursive_call_in_expr(initializer, function_name)
             }
-            Statement::ArrayDeclaration { initializer, size, .. } => {
+            Statement::ArrayDeclaration {
+                initializer, size, ..
+            } => {
                 Self::has_recursive_call_in_expr(initializer, function_name)
                     || if let Some(size_expr) = size {
                         Self::has_recursive_call_in_expr(size_expr, function_name)
@@ -129,9 +135,9 @@ impl RecursionDetector {
                     || Self::has_recursive_call_in_expr(then_expr, function_name)
                     || Self::has_recursive_call_in_expr(else_expr, function_name)
             }
-            Expression::Cast { expr: inner_expr, .. } => {
-                Self::has_recursive_call_in_expr(inner_expr, function_name)
-            }
+            Expression::Cast {
+                expr: inner_expr, ..
+            } => Self::has_recursive_call_in_expr(inner_expr, function_name),
             Expression::SizeOf(inner_expr) => {
                 Self::has_recursive_call_in_expr(inner_expr, function_name)
             }
@@ -139,11 +145,9 @@ impl RecursionDetector {
                 Self::has_recursive_call_in_expr(array, function_name)
                     || Self::has_recursive_call_in_expr(index, function_name)
             }
-            Expression::ArrayLiteral(elements) => {
-                elements
-                    .iter()
-                    .any(|elem| Self::has_recursive_call_in_expr(elem, function_name))
-            }
+            Expression::ArrayLiteral(elements) => elements
+                .iter()
+                .any(|elem| Self::has_recursive_call_in_expr(elem, function_name)),
             Expression::StructFieldAccess { object, .. } => {
                 Self::has_recursive_call_in_expr(object, function_name)
             }
@@ -154,4 +158,4 @@ impl RecursionDetector {
             _ => false,
         }
     }
-} 
+}

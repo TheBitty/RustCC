@@ -1,7 +1,7 @@
-mod implementation;
-mod recursion;
 mod call_graph;
-mod variable_renamer;
+mod implementation;
 mod inliner;
+mod recursion;
+mod variable_renamer;
 
-pub use implementation::FunctionInliner; 
+pub use implementation::FunctionInliner;

@@ -1,15 +1,12 @@
-use crate::parser::ast::{Expression, Function, Statement};
 use super::variable_renamer::VariableRenamer;
+use crate::parser::ast::{Expression, Function, Statement};
 
 /// Handles the actual inlining of function calls
 pub struct Inliner;
 
 impl Inliner {
     /// Inline function calls in a list of statements
-    pub fn inline_function_calls(
-        statements: &mut Vec<Statement>,
-        inline_candidates: &[&Function],
-    ) {
+    pub fn inline_function_calls(statements: &mut Vec<Statement>, inline_candidates: &[&Function]) {
         // Process each statement in the block to find expressions containing function calls
         for i in 0..statements.len() {
             match &mut statements[i] {
@@ -35,7 +32,10 @@ impl Inliner {
                         }
                         _ => {
                             // Handle single statement
-                            Self::inline_function_calls_in_statement(then_block.as_mut(), inline_candidates);
+                            Self::inline_function_calls_in_statement(
+                                then_block.as_mut(),
+                                inline_candidates,
+                            );
                         }
                     }
 
@@ -46,7 +46,10 @@ impl Inliner {
                             }
                             _ => {
                                 // Handle single statement
-                                Self::inline_function_calls_in_statement(else_stmt.as_mut(), inline_candidates);
+                                Self::inline_function_calls_in_statement(
+                                    else_stmt.as_mut(),
+                                    inline_candidates,
+                                );
                             }
                         }
                     }
@@ -59,7 +62,10 @@ impl Inliner {
                         }
                         _ => {
                             // Handle single statement
-                            Self::inline_function_calls_in_statement(body.as_mut(), inline_candidates);
+                            Self::inline_function_calls_in_statement(
+                                body.as_mut(),
+                                inline_candidates,
+                            );
                         }
                     }
                 }
@@ -71,7 +77,10 @@ impl Inliner {
                         }
                         _ => {
                             // Handle single statement
-                            Self::inline_function_calls_in_statement(body.as_mut(), inline_candidates);
+                            Self::inline_function_calls_in_statement(
+                                body.as_mut(),
+                                inline_candidates,
+                            );
                         }
                     }
                 }
@@ -101,7 +110,10 @@ impl Inliner {
                         }
                         _ => {
                             // Handle single statement
-                            Self::inline_function_calls_in_statement(body.as_mut(), inline_candidates);
+                            Self::inline_function_calls_in_statement(
+                                body.as_mut(),
+                                inline_candidates,
+                            );
                         }
                     }
                 }
@@ -132,29 +144,39 @@ impl Inliner {
         while i < statements.len() {
             // Create a clone of the statement for analysis
             let stmt_clone = statements[i].clone();
-            
+
             // Check if this is a function call that should be inlined
-            if let Statement::ExpressionStatement(Expression::FunctionCall { ref name, ref arguments }) = stmt_clone {
-                if let Some(function_to_inline) = inline_candidates.iter().find(|f| &f.name == name) {
+            if let Statement::ExpressionStatement(Expression::FunctionCall {
+                ref name,
+                arguments: _,
+            }) = stmt_clone
+            {
+                if let Some(function_to_inline) = inline_candidates.iter().find(|f| &f.name == name)
+                {
                     // Found a function to inline, remove the original statement
                     let original_statement = statements.remove(i);
-                    
+
                     // Get the name and args from the removed statement
-                    let (function_name, args) = if let Statement::ExpressionStatement(Expression::FunctionCall { name, arguments }) = original_statement {
-                        (name, arguments)
-                    } else {
-                        // This should never happen since we just checked the type
-                        (String::new(), Vec::new())
-                    };
-                    
+                    let (function_name, args) =
+                        if let Statement::ExpressionStatement(Expression::FunctionCall {
+                            name,
+                            arguments,
+                        }) = original_statement
+                        {
+                            (name, arguments)
+                        } else {
+                            // This should never happen since we just checked the type
+                            (String::new(), Vec::new())
+                        };
+
                     println!("Inlining function call to {}", function_name);
-                    
+
                     // Create inlined statements
                     let mut inlined_statements = Vec::new();
-                    
+
                     // Create a variable name prefix to avoid name collisions
                     let prefix = format!("__inline_{}_", function_name);
-                    
+
                     // 1. Declare parameters and assign arguments
                     for (param_idx, param) in function_to_inline.parameters.iter().enumerate() {
                         let arg_expr = if param_idx < args.len() {
@@ -193,7 +215,7 @@ impl Inliner {
                     }
 
                     // 3. Process the function body, handling returns
-                    let mut had_early_return = false;
+                    let mut _had_early_return = false;
                     let mut processed_body = Vec::new();
 
                     for statement in &function_to_inline.body {
@@ -215,7 +237,7 @@ impl Inliner {
                                     },
                                 ));
                             }
-                            had_early_return = true;
+                            _had_early_return = true;
                             break;
                         } else {
                             // Clone and rename variables in the statement
@@ -241,7 +263,7 @@ impl Inliner {
                     continue;
                 }
             }
-            
+
             // If it wasn't a function call or wasn't inlined, move to the next statement
             i += 1;
         }
@@ -352,7 +374,9 @@ impl Inliner {
                 Self::inline_function_calls_in_expr(then_expr, inline_candidates);
                 Self::inline_function_calls_in_expr(else_expr, inline_candidates);
             }
-            Expression::Cast { expr: inner_expr, .. } => {
+            Expression::Cast {
+                expr: inner_expr, ..
+            } => {
                 Self::inline_function_calls_in_expr(inner_expr, inline_candidates);
             }
             Expression::ArrayAccess { array, index } => {
@@ -377,4 +401,4 @@ impl Inliner {
             _ => {}
         }
     }
-} 
+}

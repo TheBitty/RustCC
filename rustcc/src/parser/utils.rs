@@ -1,5 +1,6 @@
-use crate::parser::Parser;
+use crate::parser::error::{Error, Result};
 use crate::parser::token::{Token, TokenType};
+use crate::parser::Parser;
 
 impl Parser {
     // Helper method to synchronize after error
@@ -38,6 +39,7 @@ impl Parser {
         }
     }
 
+    #[allow(dead_code)]
     pub fn match_any(&mut self, types: &[TokenType]) -> bool {
         for t in types {
             if self.check(t.clone()) {
@@ -74,11 +76,11 @@ impl Parser {
         &self.tokens[self.current - 1]
     }
 
-    pub fn consume(&mut self, token_type: TokenType, message: &str) -> Result<&Token, String> {
+    pub fn consume(&mut self, token_type: TokenType, message: &str) -> Result<&Token> {
         if self.check(token_type) {
             Ok(self.advance())
         } else {
-            Err(format!("{} at line {}", message, self.peek().line))
+            Err(Error::unexpected_token(message, self.peek()))
         }
     }
 
@@ -101,4 +103,4 @@ impl Parser {
         }
         false
     }
-} 
+}

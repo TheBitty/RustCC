@@ -2,20 +2,16 @@
 // Main entry point for the lexer module
 
 // Private module imports
+mod identifiers;
+mod literals;
+mod operators;
+mod preprocessor;
+mod scanner;
 mod token_definitions;
 mod utils;
-mod scanner;
-mod literals;
-mod identifiers;
-mod preprocessor;
-mod operators;
 
-// Re-exports
-pub use token_definitions::*;
-pub use self::utils::*;
-
-use std::collections::HashMap;
 use crate::parser::token::{Token, TokenType};
+use std::collections::HashMap;
 
 /// The Lexer struct is responsible for tokenizing C source code.
 /// It scans a source string and produces a sequence of tokens that
@@ -36,7 +32,7 @@ impl Lexer {
     /// Creates a new lexer for the given source code
     pub fn new(source: String) -> Self {
         let keywords = token_definitions::init_keywords();
-        
+
         Lexer {
             source,
             tokens: Vec::new(),

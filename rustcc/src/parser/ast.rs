@@ -204,6 +204,6 @@ pub struct Function {
 pub struct Program {
     pub functions: Vec<Function>,
     pub structs: Vec<Struct>,
-    pub includes: Vec<String>, // List of include directives for C code
+    pub includes: Vec<String>,   // List of include directives for C code
     pub globals: Vec<Statement>, // Global variable declarations
 }

@@ -1,8 +1,8 @@
 // operators.rs
 // Operator recognition for the lexer
 
-use crate::parser::token::TokenType;
 use crate::parser::lexer::Lexer;
+use crate::parser::token::TokenType;
 
 impl Lexer {
     /// Handles the dot character (. or ...)
@@ -178,4 +178,4 @@ impl Lexer {
             self.add_token(TokenType::PPHash);
         }
     }
-} 
+}
