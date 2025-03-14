@@ -94,12 +94,8 @@ impl Parser {
                                     if i + 3 < self.tokens.len() {
                                         // Handle various define value formats
                                         if self.tokens[i + 3].token_type == TokenType::StringLiteral
-                                        {
-                                            if let Some(value) = &self.tokens[i + 3].literal {
-                                                self.defines.insert(name, value.clone());
-                                            }
-                                        } else if self.tokens[i + 3].token_type
-                                            == TokenType::IntegerLiteral
+                                            || self.tokens[i + 3].token_type
+                                                == TokenType::IntegerLiteral
                                         {
                                             if let Some(value) = &self.tokens[i + 3].literal {
                                                 self.defines.insert(name, value.clone());
@@ -757,18 +753,10 @@ impl Parser {
             };
             Ok(Expression::IntegerLiteral(value))
         } else if self.match_token(TokenType::StringLiteral) {
-            let value = self
-                .previous()
-                .literal
-                .clone()
-                .unwrap_or_else(|| "".to_string());
+            let value = self.previous().literal.clone().unwrap_or_default();
             Ok(Expression::StringLiteral(value))
         } else if self.match_token(TokenType::CharLiteral) {
-            let value = self
-                .previous()
-                .literal
-                .clone()
-                .unwrap_or_else(|| "".to_string());
+            let value = self.previous().literal.clone().unwrap_or_default();
             if value.is_empty() {
                 Ok(Expression::CharLiteral('\0'))
             } else {
