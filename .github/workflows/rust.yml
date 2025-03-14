@@ -81,9 +81,9 @@ jobs:
         with:
           toolchain: stable
           override: true
-      - name: Run cargo-tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
-        with:
-          args: '--workspace --ignore-tests --out Xml --timeout 120 --root rustcc'
+      - name: Install tarpaulin
+        run: cargo install cargo-tarpaulin
+      - name: Run tarpaulin
+        run: cd rustcc && cargo tarpaulin --workspace --ignore-tests --out Xml --timeout 120
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1 

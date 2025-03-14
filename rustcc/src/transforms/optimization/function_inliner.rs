@@ -722,6 +722,7 @@ impl FunctionInliner {
         }
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn rename_variables_in_expr(
         &self,
         expr: &mut Expression,
