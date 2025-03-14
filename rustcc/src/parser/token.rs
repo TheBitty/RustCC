@@ -22,6 +22,11 @@ pub enum TokenType {
     Break,
     Continue,
     Struct,
+    Switch,
+    Case,
+    Default,
+    Do,
+    Sizeof,
 
     // Identifiers and literals
     Identifier,
@@ -56,6 +61,20 @@ pub enum TokenType {
     Tilde,
     ShiftLeft,
     ShiftRight, // Bitwise operators
+    
+    // Compound assignment operators
+    ShiftLeftEqual,
+    ShiftRightEqual,
+    AmpersandEqual,
+    PipeEqual,
+    CaretEqual,
+    
+    // Increment/decrement operators
+    Increment, // ++
+    Decrement, // --
+    
+    // Structure access
+    Arrow, // ->
 
     // Delimiters
     LeftParen,
@@ -67,6 +86,22 @@ pub enum TokenType {
     Semicolon,
     Comma,
     Dot, // ; , .
+    Colon, // :
+
+    // Preprocessor directives
+    Hash, // # symbol
+    PPInclude,
+    PPDefine,
+    PPUndef,
+    PPIfDef,
+    PPIfNDef,
+    PPIf,
+    PPElse,
+    PPElif,
+    PPEndif,
+    PPPragma,
+    PPErrorDir,
+    PPWarning,
 
     // Special tokens
     Eof,

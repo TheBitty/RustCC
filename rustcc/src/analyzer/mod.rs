@@ -72,6 +72,29 @@ impl SemanticAnalyzer {
                 self.variables.insert(name.clone(), true);
                 Ok(())
             }
+            Statement::ArrayDeclaration {
+                name,
+                initializer,
+                size,
+                data_type: _,
+            } => {
+                // Check if variable is already defined
+                if self.variables.contains_key(name) {
+                    return Err(format!("Array '{}' is already defined", name));
+                }
+
+                // Analyze the initializer expression
+                self.analyze_expression(initializer)?;
+                
+                // Analyze the size expression if provided
+                if let Some(size_expr) = size {
+                    self.analyze_expression(size_expr)?;
+                }
+
+                // Mark array as defined
+                self.variables.insert(name.clone(), true);
+                Ok(())
+            }
             Statement::ExpressionStatement(expr) => self.analyze_expression(expr),
             Statement::Block(statements) => {
                 for stmt in statements {
@@ -169,10 +192,16 @@ impl SemanticAnalyzer {
                 self.analyze_expression(else_expr)
             }
             Expression::Cast { expr, .. } => self.analyze_expression(expr),
-            Expression::SizeOf { .. } => Ok(()),
+            Expression::SizeOf(expr) => self.analyze_expression(expr),
             Expression::ArrayAccess { array, index } => {
                 self.analyze_expression(array)?;
                 self.analyze_expression(index)
+            }
+            Expression::ArrayLiteral(elements) => {
+                for element in elements {
+                    self.analyze_expression(element)?;
+                }
+                Ok(())
             }
             Expression::StructFieldAccess { object, .. } => self.analyze_expression(object),
             Expression::PointerFieldAccess { pointer, .. } => self.analyze_expression(pointer),

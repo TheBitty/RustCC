@@ -246,6 +246,12 @@ impl FunctionInliner {
             Statement::VariableDeclaration { initializer, .. } => {
                 self.find_called_functions_in_expr(initializer, called_functions);
             }
+            Statement::ArrayDeclaration { initializer, size, .. } => {
+                self.find_called_functions_in_expr(initializer, called_functions);
+                if let Some(size_expr) = size {
+                    self.find_called_functions_in_expr(size_expr, called_functions);
+                }
+            }
             Statement::Switch { expression, cases } => {
                 self.find_called_functions_in_expr(expression, called_functions);
                 for case in cases {
@@ -258,7 +264,6 @@ impl FunctionInliner {
         }
     }
 
-    #[allow(clippy::only_used_in_recursion)]
     fn find_called_functions_in_expr(
         &self,
         expr: &Expression,
@@ -294,9 +299,17 @@ impl FunctionInliner {
             Expression::Cast { expr, .. } => {
                 self.find_called_functions_in_expr(expr, called_functions);
             }
+            Expression::SizeOf(expr) => {
+                self.find_called_functions_in_expr(expr, called_functions);
+            }
             Expression::ArrayAccess { array, index } => {
                 self.find_called_functions_in_expr(array, called_functions);
                 self.find_called_functions_in_expr(index, called_functions);
+            }
+            Expression::ArrayLiteral(elements) => {
+                for element in elements {
+                    self.find_called_functions_in_expr(element, called_functions);
+                }
             }
             Expression::StructFieldAccess { object, .. } => {
                 self.find_called_functions_in_expr(object, called_functions);
@@ -304,12 +317,8 @@ impl FunctionInliner {
             Expression::PointerFieldAccess { pointer, .. } => {
                 self.find_called_functions_in_expr(pointer, called_functions);
             }
-            Expression::IntegerLiteral(_)
-            | Expression::StringLiteral(_)
-            | Expression::CharLiteral(_)
-            | Expression::SizeOf { .. }
-            | Expression::Variable(_) => {
-                // These don't call functions
+            _ => {
+                // Other expressions don't contain function calls
             }
         }
     }
@@ -390,6 +399,18 @@ impl FunctionInliner {
                 Statement::ExpressionStatement(expr) => {
                     self.inline_function_calls_in_expr(expr, inline_candidates);
                 }
+                Statement::Return(expr) => {
+                    self.inline_function_calls_in_expr(expr, inline_candidates);
+                }
+                Statement::VariableDeclaration { initializer, .. } => {
+                    self.inline_function_calls_in_expr(initializer, inline_candidates);
+                }
+                Statement::ArrayDeclaration { initializer, size, .. } => {
+                    self.inline_function_calls_in_expr(initializer, inline_candidates);
+                    if let Some(size_expr) = size {
+                        self.inline_function_calls_in_expr(size_expr, inline_candidates);
+                    }
+                }
                 Statement::Block(block_statements) => {
                     self.inline_function_calls(block_statements, inline_candidates);
                 }
@@ -400,35 +421,65 @@ impl FunctionInliner {
                 } => {
                     self.inline_function_calls_in_expr(condition, inline_candidates);
 
-                    match then_block.as_mut() {
-                        Statement::Block(block_statements) => {
-                            self.inline_function_calls(block_statements, inline_candidates);
+                    // Inline in then block
+                    let then_stmt = then_block.as_mut();
+                    match then_stmt {
+                        Statement::Block(statements) => {
+                            self.inline_function_calls(statements, inline_candidates);
                         }
                         _ => {
-                            // Convert to block if it's not already
-                            let stmt =
-                                std::mem::replace(then_block, Box::new(Statement::Block(vec![])));
-                            if let Statement::Block(block_statements) = then_block.as_mut() {
-                                block_statements.push(*stmt); // Dereference Box<Statement> to Statement
-                                self.inline_function_calls(block_statements, inline_candidates);
+                            // Handle single statement
+                            let then_stmt = then_block.as_mut();
+                            match then_stmt {
+                                Statement::ExpressionStatement(expr) => {
+                                    self.inline_function_calls_in_expr(expr, inline_candidates);
+                                }
+                                Statement::Return(expr) => {
+                                    self.inline_function_calls_in_expr(expr, inline_candidates);
+                                }
+                                Statement::VariableDeclaration { initializer, .. } => {
+                                    self.inline_function_calls_in_expr(initializer, inline_candidates);
+                                }
+                                Statement::ArrayDeclaration { initializer, size, .. } => {
+                                    self.inline_function_calls_in_expr(initializer, inline_candidates);
+                                    if let Some(size_expr) = size {
+                                        self.inline_function_calls_in_expr(size_expr, inline_candidates);
+                                    }
+                                }
+                                // Handle other statement types as needed
+                                _ => {}
                             }
                         }
                     }
 
+                    // Inline in else block if it exists
                     if let Some(else_stmt) = else_block {
-                        match else_stmt.as_mut() {
-                            Statement::Block(block_statements) => {
-                                self.inline_function_calls(block_statements, inline_candidates);
+                        let else_stmt_ref = else_stmt.as_mut();
+                        match else_stmt_ref {
+                            Statement::Block(statements) => {
+                                self.inline_function_calls(statements, inline_candidates);
                             }
                             _ => {
-                                // Convert to block if it's not already
-                                let stmt = std::mem::replace(
-                                    else_stmt,
-                                    Box::new(Statement::Block(vec![])),
-                                );
-                                if let Statement::Block(block_statements) = else_stmt.as_mut() {
-                                    block_statements.push(*stmt); // Dereference Box<Statement> to Statement
-                                    self.inline_function_calls(block_statements, inline_candidates);
+                                // Handle single statement
+                                let else_stmt_ref = else_stmt.as_mut();
+                                match else_stmt_ref {
+                                    Statement::ExpressionStatement(expr) => {
+                                        self.inline_function_calls_in_expr(expr, inline_candidates);
+                                    }
+                                    Statement::Return(expr) => {
+                                        self.inline_function_calls_in_expr(expr, inline_candidates);
+                                    }
+                                    Statement::VariableDeclaration { initializer, .. } => {
+                                        self.inline_function_calls_in_expr(initializer, inline_candidates);
+                                    }
+                                    Statement::ArrayDeclaration { initializer, size, .. } => {
+                                        self.inline_function_calls_in_expr(initializer, inline_candidates);
+                                        if let Some(size_expr) = size {
+                                            self.inline_function_calls_in_expr(size_expr, inline_candidates);
+                                        }
+                                    }
+                                    // Handle other statement types as needed
+                                    _ => {}
                                 }
                             }
                         }
@@ -499,12 +550,6 @@ impl FunctionInliner {
                             }
                         }
                     }
-                }
-                Statement::VariableDeclaration { initializer, .. } => {
-                    self.inline_function_calls_in_expr(initializer, inline_candidates);
-                }
-                Statement::Return(expr) => {
-                    self.inline_function_calls_in_expr(expr, inline_candidates);
                 }
                 Statement::Switch { expression, cases } => {
                     self.inline_function_calls_in_expr(expression, inline_candidates);
@@ -659,9 +704,17 @@ impl FunctionInliner {
             } => {
                 // Rename the variable declaration
                 *name = format!("{}{}", prefix, name);
-
-                // Process the initializer
                 self.rename_variables_in_expr(initializer, prefix, parameters);
+            }
+            Statement::ArrayDeclaration {
+                name, initializer, size, ..
+            } => {
+                // Rename the array declaration
+                *name = format!("{}{}", prefix, name);
+                self.rename_variables_in_expr(initializer, prefix, parameters);
+                if let Some(size_expr) = size {
+                    self.rename_variables_in_expr(size_expr, prefix, parameters);
+                }
             }
             Statement::ExpressionStatement(expr) => {
                 self.rename_variables_in_expr(expr, prefix, parameters);
@@ -689,6 +742,10 @@ impl FunctionInliner {
                 self.rename_variables_in_expr(condition, prefix, parameters);
                 self.rename_variables_in_statement(body, prefix, parameters);
             }
+            Statement::DoWhile { body, condition } => {
+                self.rename_variables_in_statement(body, prefix, parameters);
+                self.rename_variables_in_expr(condition, prefix, parameters);
+            }
             Statement::For {
                 initializer,
                 condition,
@@ -706,10 +763,6 @@ impl FunctionInliner {
                 }
                 self.rename_variables_in_statement(body, prefix, parameters);
             }
-            Statement::DoWhile { body, condition } => {
-                self.rename_variables_in_statement(body, prefix, parameters);
-                self.rename_variables_in_expr(condition, prefix, parameters);
-            }
             Statement::Switch { expression, cases } => {
                 self.rename_variables_in_expr(expression, prefix, parameters);
                 for case in cases {
@@ -718,6 +771,7 @@ impl FunctionInliner {
                     }
                 }
             }
+            // Statements that don't contain variables to rename
             Statement::Break | Statement::Continue => {}
         }
     }
@@ -761,14 +815,20 @@ impl FunctionInliner {
                 self.rename_variables_in_expr(then_expr, prefix, parameters);
                 self.rename_variables_in_expr(else_expr, prefix, parameters);
             }
-            Expression::Cast {
-                expr: inner_expr, ..
-            } => {
-                self.rename_variables_in_expr(inner_expr, prefix, parameters);
+            Expression::Cast { expr, .. } => {
+                self.rename_variables_in_expr(expr, prefix, parameters);
+            }
+            Expression::SizeOf(expr) => {
+                self.rename_variables_in_expr(expr, prefix, parameters);
             }
             Expression::ArrayAccess { array, index } => {
                 self.rename_variables_in_expr(array, prefix, parameters);
                 self.rename_variables_in_expr(index, prefix, parameters);
+            }
+            Expression::ArrayLiteral(elements) => {
+                for element in elements {
+                    self.rename_variables_in_expr(element, prefix, parameters);
+                }
             }
             Expression::StructFieldAccess { object, .. } => {
                 self.rename_variables_in_expr(object, prefix, parameters);
@@ -776,11 +836,8 @@ impl FunctionInliner {
             Expression::PointerFieldAccess { pointer, .. } => {
                 self.rename_variables_in_expr(pointer, prefix, parameters);
             }
-            Expression::IntegerLiteral(_)
-            | Expression::StringLiteral(_)
-            | Expression::CharLiteral(_)
-            | Expression::SizeOf { .. } => {
-                // These don't have variables to rename
+            _ => {
+                // Other expressions don't contain variables to rename
             }
         }
     }
@@ -900,3 +957,6 @@ impl Transform for FunctionInliner {
         "Function Inliner"
     }
 }
+
+
+

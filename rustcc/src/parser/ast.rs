@@ -19,11 +19,18 @@ pub enum BinaryOp {
     BitwiseXor,
     LeftShift,
     RightShift,
+    LogicalNot,    // for !expr
+    Negate,        // for -expr
+    PreIncrement,  // for ++expr
+    PreDecrement,  // for --expr
+    PostIncrement, // for expr++
+    PostDecrement, // for expr--
 }
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum UnaryOp {
+    // Keep these variants for backward compatibility
     Negate,        // -
     LogicalNot,    // !
     BitwiseNot,    // ~
@@ -33,6 +40,13 @@ pub enum UnaryOp {
     PreDecrement,  // --x
     PostIncrement, // x++
     PostDecrement, // x--
+}
+
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub enum OperatorType {
+    Binary(BinaryOp),
+    Unary(UnaryOp),
 }
 
 #[derive(Debug, Clone)]
@@ -47,7 +61,7 @@ pub enum Expression {
         right: Box<Expression>,
     },
     UnaryOperation {
-        operator: UnaryOp,
+        operator: OperatorType,
         operand: Box<Expression>,
     },
     Variable(String),
@@ -68,13 +82,12 @@ pub enum Expression {
         target_type: Type,
         expr: Box<Expression>,
     },
-    SizeOf {
-        target_type: Type,
-    },
+    SizeOf(Box<Expression>),
     ArrayAccess {
         array: Box<Expression>,
         index: Box<Expression>,
     },
+    ArrayLiteral(Vec<Expression>),
     StructFieldAccess {
         object: Box<Expression>,
         field: String,
@@ -92,6 +105,12 @@ pub enum Statement {
     VariableDeclaration {
         name: String,
         data_type: Option<Type>,
+        initializer: Expression,
+    },
+    ArrayDeclaration {
+        name: String,
+        data_type: Option<Type>,
+        size: Option<Expression>,
         initializer: Expression,
     },
     #[allow(clippy::enum_variant_names)]
@@ -154,7 +173,7 @@ pub struct FunctionParameter {
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
-pub struct StructDeclaration {
+pub struct Struct {
     pub name: String,
     pub fields: Vec<StructField>,
 }
@@ -179,6 +198,6 @@ pub struct Function {
 #[allow(dead_code)]
 pub struct Program {
     pub functions: Vec<Function>,
-    pub structs: Vec<StructDeclaration>,
+    pub structs: Vec<Struct>,
     pub includes: Vec<String>, // List of include directives for C code
 }

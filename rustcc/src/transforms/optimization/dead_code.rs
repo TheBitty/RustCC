@@ -47,6 +47,12 @@ impl DeadCodeEliminator {
             Statement::VariableDeclaration { initializer, .. } => {
                 self.find_used_vars_in_expr(initializer, used_vars);
             }
+            Statement::ArrayDeclaration { initializer, size, .. } => {
+                self.find_used_vars_in_expr(initializer, used_vars);
+                if let Some(size_expr) = size {
+                    self.find_used_vars_in_expr(size_expr, used_vars);
+                }
+            }
             Statement::ExpressionStatement(expr) => {
                 self.find_used_vars_in_expr(expr, used_vars);
             }
@@ -140,9 +146,17 @@ impl DeadCodeEliminator {
             Expression::Cast { expr, .. } => {
                 self.find_used_vars_in_expr(expr, used_vars);
             }
+            Expression::SizeOf(expr) => {
+                self.find_used_vars_in_expr(expr, used_vars);
+            }
             Expression::ArrayAccess { array, index } => {
                 self.find_used_vars_in_expr(array, used_vars);
                 self.find_used_vars_in_expr(index, used_vars);
+            }
+            Expression::ArrayLiteral(elements) => {
+                for element in elements {
+                    self.find_used_vars_in_expr(element, used_vars);
+                }
             }
             Expression::StructFieldAccess { object, .. } => {
                 self.find_used_vars_in_expr(object, used_vars);
@@ -150,11 +164,8 @@ impl DeadCodeEliminator {
             Expression::PointerFieldAccess { pointer, .. } => {
                 self.find_used_vars_in_expr(pointer, used_vars);
             }
-            Expression::IntegerLiteral(_)
-            | Expression::StringLiteral(_)
-            | Expression::CharLiteral(_)
-            | Expression::SizeOf { .. } => {
-                // These don't use variables
+            _ => {
+                // Integer, string and char literals don't reference variables
             }
         }
     }

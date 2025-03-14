@@ -67,6 +67,17 @@ impl VariableObfuscator {
                 }
                 self.obfuscate_expression(initializer, var_map);
             }
+            Statement::ArrayDeclaration {
+                name,
+                initializer,
+                data_type: _,
+                size: _,
+            } => {
+                if let Some(new_name) = var_map.get(name) {
+                    *name = new_name.clone();
+                }
+                self.obfuscate_expression(initializer, var_map);
+            }
             Statement::Return(expr) => {
                 self.obfuscate_expression(expr, var_map);
             }
@@ -171,10 +182,17 @@ impl VariableObfuscator {
             Expression::Cast { expr, .. } => {
                 self.obfuscate_expression(expr, var_map);
             }
-            Expression::SizeOf { .. } => {}
+            Expression::SizeOf(expr) => {
+                self.obfuscate_expression(expr, var_map);
+            }
             Expression::ArrayAccess { array, index } => {
                 self.obfuscate_expression(array, var_map);
                 self.obfuscate_expression(index, var_map);
+            }
+            Expression::ArrayLiteral(elements) => {
+                for element in elements {
+                    self.obfuscate_expression(element, var_map);
+                }
             }
             Expression::StructFieldAccess { object, .. } => {
                 self.obfuscate_expression(object, var_map);
@@ -610,7 +628,7 @@ impl DeadCodeInserter {
                 let b = rng.gen_range(1..100);
 
                 Expression::UnaryOperation {
-                    operator: UnaryOp::Negate,
+                    operator: crate::parser::ast::OperatorType::Unary(UnaryOp::Negate),
                     operand: Box::new(Expression::BinaryOperation {
                         left: Box::new(Expression::IntegerLiteral(a)),
                         operator: BinaryOp::Multiply,
