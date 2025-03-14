@@ -1,8 +1,11 @@
 use crate::parser::lexer::Lexer;
 use crate::parser::parser::Parser;
+use crate::parser::ast::Program;
+use crate::transforms::Transform;
+use crate::transforms::optimization::{ConstantFolder, DeadCodeEliminator};
+use crate::transforms::obfuscation::{VariableObfuscator, ControlFlowObfuscator, DeadCodeInserter, StringEncryptor};
 use crate::analyzer::SemanticAnalyzer;
 use crate::codegen::CodeGenerator;
-use crate::transforms::{Transform, obfuscation, optimization};
 use std::fs;
 use std::path::Path;
 
@@ -100,36 +103,42 @@ impl Compiler {
         }
     }
     
-    fn apply_transformations(&self, ast: &mut crate::parser::ast::Program) -> Result<(), String> {
-        let mut transformations: Vec<Box<dyn Transform>> = Vec::new();
+    fn apply_transformations(&self, ast: &mut Program) -> Result<(), String> {
+        let mut transforms: Vec<Box<dyn Transform>> = Vec::new();
         
-        // Add optimizations based on optimization level
+        // Apply optimizations
         match self.optimization_level {
-            OptimizationLevel::None => {},
-            OptimizationLevel::Basic | OptimizationLevel::Full => {
-                transformations.push(Box::new(optimization::ConstantFolder {}));
-                
-                if self.optimization_level == OptimizationLevel::Full {
-                    transformations.push(Box::new(optimization::DeadCodeEliminator {}));
-                }
+            OptimizationLevel::None => {
+                // No optimizations
+            },
+            OptimizationLevel::Basic => {
+                transforms.push(Box::new(ConstantFolder));
+            },
+            OptimizationLevel::Full => {
+                transforms.push(Box::new(ConstantFolder));
+                transforms.push(Box::new(DeadCodeEliminator));
             }
         }
         
-        // Add obfuscations based on obfuscation level
+        // Apply obfuscations
         match self.obfuscation_level {
-            ObfuscationLevel::None => {},
+            ObfuscationLevel::None => {
+                // No obfuscation
+            },
             ObfuscationLevel::Basic => {
-                transformations.push(Box::new(obfuscation::VariableObfuscator {}));
+                transforms.push(Box::new(VariableObfuscator));
+                transforms.push(Box::new(StringEncryptor));
             },
             ObfuscationLevel::Aggressive => {
-                transformations.push(Box::new(obfuscation::VariableObfuscator {}));
-                transformations.push(Box::new(obfuscation::ControlFlowObfuscator {}));
-                transformations.push(Box::new(obfuscation::DeadCodeInserter {}));
+                transforms.push(Box::new(VariableObfuscator));
+                transforms.push(Box::new(ControlFlowObfuscator));
+                transforms.push(Box::new(DeadCodeInserter));
+                transforms.push(Box::new(StringEncryptor));
             }
         }
         
         // Apply all transformations
-        for transform in transformations {
+        for transform in transforms {
             println!("Applying transformation: {}", transform.name());
             transform.apply(ast)?;
         }
