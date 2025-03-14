@@ -30,7 +30,11 @@ pub struct Lexer {
 
 impl Lexer {
     /// Creates a new lexer for the given source code
-    pub fn new(source: String) -> Self {
+    pub fn new(mut source: String) -> Self {
+        // Remove UTF-8 BOM if present
+        if source.starts_with("\u{FEFF}") {
+            source = source.trim_start_matches("\u{FEFF}").to_string();
+        }
         let keywords = token_definitions::init_keywords();
 
         Lexer {

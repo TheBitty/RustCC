@@ -87,6 +87,7 @@ impl GccPreprocessor {
         
         // Basic flags
         cmd.arg("-E"); // Preprocess only
+        cmd.arg("-P"); // Disable linemarkers
         
         // Add include paths
         for path in &self.config.include_paths {

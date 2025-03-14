@@ -49,6 +49,7 @@ pub enum ObfuscationLevel {
 
 /// Language dialect options
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum LanguageDialect {
     /// C89 standard
     C89,
@@ -90,24 +91,28 @@ impl Compiler {
     }
 
     /// Set the language dialect
+    #[allow(dead_code)]
     pub fn with_language_dialect(mut self, dialect: LanguageDialect) -> Self {
         self.language_dialect = dialect;
         self
     }
 
     /// Set the configuration
+    #[allow(dead_code)]
     pub fn with_config(mut self, config: Config) -> Self {
         self.config = Some(config);
         self
     }
 
     /// Set the preprocessor configuration
+    #[allow(dead_code)]
     pub fn with_preprocessor_config(mut self, config: PreprocessorConfig) -> Self {
         self.preprocessor_config = Some(config);
         self
     }
 
     /// Enable or disable verbose output
+    #[allow(dead_code)]
     pub fn with_verbose(mut self, verbose: bool) -> Self {
         self.verbose = verbose;
         self
@@ -190,12 +195,16 @@ impl Compiler {
         
         let preprocessed_path = preprocessor.preprocess_file(source_path)?;
         
-        // Read the preprocessed file
-        let source = fs::read_to_string(&preprocessed_path)
+        // Read the preprocessed file (GCC -P flag removes line markers)
+        let mut source = fs::read_to_string(&preprocessed_path)
             .map_err(|e| format!("Failed to read preprocessed file: {}", e))?;
+        // Ensure the source ends with a newline
+        if !source.ends_with("\n") {
+            source.push('\n');
+        }
             
         if self.verbose {
-            println!("Preprocessing completed");
+            println!("Preprocessing completed. Processed source:\n{}", source);
         }
 
         // Lexical analysis

@@ -4,10 +4,12 @@
 //! It integrates with GCC's preprocessor to handle all standard C preprocessor directives.
 
 mod gcc;
+mod native;
 #[cfg(test)]
 mod tests;
 
 pub use gcc::{GccPreprocessor, PreprocessorConfig};
+pub use native::NativePreprocessor;
 
 /// Trait defining the interface for preprocessors
 pub trait Preprocessor {
