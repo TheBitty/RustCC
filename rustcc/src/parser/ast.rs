@@ -24,11 +24,11 @@ pub enum BinaryOp {
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum UnaryOp {
-    Negate,      // -
-    LogicalNot,  // !
-    BitwiseNot,  // ~
-    AddressOf,   // &
-    Dereference, // *
+    Negate,        // -
+    LogicalNot,    // !
+    BitwiseNot,    // ~
+    AddressOf,     // &
+    Dereference,   // *
     PreIncrement,  // ++x
     PreDecrement,  // --x
     PostIncrement, // x++
@@ -180,4 +180,4 @@ pub struct Program {
     pub functions: Vec<Function>,
     pub structs: Vec<StructDeclaration>,
     pub includes: Vec<String>, // List of include directives for C code
-} 
+}

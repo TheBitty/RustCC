@@ -1,4 +1,4 @@
-use crate::parser::ast::{Program, Statement, Expression, BinaryOp, UnaryOp};
+use crate::parser::ast::{BinaryOp, Expression, Program, Statement, UnaryOp};
 use crate::transforms::Transform;
 
 /// Constant Folding Optimization
@@ -6,16 +6,16 @@ use crate::transforms::Transform;
 pub struct ConstantFolder;
 
 impl Transform for ConstantFolder {
-    fn apply(&self, program: &mut Program) -> Result<(), String> {
+    fn apply(&self, program: &mut Program) -> std::result::Result<(), String> {
         for function in &mut program.functions {
             for statement in &mut function.body {
                 self.fold_statement(statement);
             }
         }
-        
+
         Ok(())
     }
-    
+
     fn name(&self) -> &'static str {
         "Constant Folder"
     }
@@ -38,7 +38,11 @@ impl ConstantFolder {
                     self.fold_statement(stmt);
                 }
             }
-            Statement::If { condition, then_block, else_block } => {
+            Statement::If {
+                condition,
+                then_block,
+                else_block,
+            } => {
                 *condition = self.fold_expression(condition);
                 self.fold_statement(then_block);
                 if let Some(else_stmt) = else_block {
@@ -49,7 +53,12 @@ impl ConstantFolder {
                 *condition = self.fold_expression(condition);
                 self.fold_statement(body);
             }
-            Statement::For { initializer, condition, increment, body } => {
+            Statement::For {
+                initializer,
+                condition,
+                increment,
+                body,
+            } => {
                 if let Some(init) = initializer {
                     self.fold_statement(init);
                 }
@@ -82,14 +91,21 @@ impl ConstantFolder {
 
     fn fold_expression(&self, expr: &Expression) -> Expression {
         match expr {
-            Expression::BinaryOperation { left, operator, right } => {
+            Expression::BinaryOperation {
+                left,
+                operator,
+                right,
+            } => {
                 // Recursively fold the operands
                 let folded_left = self.fold_expression(left);
                 let folded_right = self.fold_expression(right);
-                
+
                 // Check if both operands are now constants
-                if let (Expression::IntegerLiteral(left_val), Expression::IntegerLiteral(right_val)) = 
-                    (&folded_left, &folded_right) {
+                if let (
+                    Expression::IntegerLiteral(left_val),
+                    Expression::IntegerLiteral(right_val),
+                ) = (&folded_left, &folded_right)
+                {
                     // Perform the operation at compile time
                     let result = match operator {
                         BinaryOp::Add => left_val + right_val,
@@ -116,7 +132,7 @@ impl ConstantFolder {
                             };
                         }
                     };
-                    
+
                     Expression::IntegerLiteral(result)
                 } else {
                     // If we can't fold, return the expression with folded operands
@@ -129,7 +145,7 @@ impl ConstantFolder {
             }
             Expression::UnaryOperation { operator, operand } => {
                 let folded_operand = self.fold_expression(operand);
-                
+
                 // Only for integer literals do we calculate the result now
                 if let Expression::IntegerLiteral(val) = folded_operand {
                     match operator {
@@ -147,10 +163,11 @@ impl ConstantFolder {
                 }
             }
             Expression::FunctionCall { name, arguments } => {
-                let folded_args = arguments.iter()
+                let folded_args = arguments
+                    .iter()
                     .map(|arg| self.fold_expression(arg))
                     .collect();
-                
+
                 Expression::FunctionCall {
                     name: name.clone(),
                     arguments: folded_args,
@@ -160,4 +177,4 @@ impl ConstantFolder {
             _ => expr.clone(),
         }
     }
-} 
+}

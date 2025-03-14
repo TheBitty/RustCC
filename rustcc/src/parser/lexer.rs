@@ -36,7 +36,7 @@ impl Lexer {
             keywords,
         }
     }
-    
+
     // This will be the main method to scan all tokens from the source
     pub fn scan_tokens(&mut self) -> &Vec<Token> {
         while !self.is_at_end() {
@@ -51,7 +51,7 @@ impl Lexer {
             column: self.column,
             literal: None,
         });
-        
+
         &self.tokens
     }
 
@@ -77,21 +77,21 @@ impl Lexer {
                 } else {
                     self.add_token(TokenType::Plus)
                 }
-            },
+            }
             '-' => {
                 if self.match_char('=') {
                     self.add_token(TokenType::MinusEqual)
                 } else {
                     self.add_token(TokenType::Minus)
                 }
-            },
+            }
             '*' => {
                 if self.match_char('=') {
                     self.add_token(TokenType::StarEqual)
                 } else {
                     self.add_token(TokenType::Star)
                 }
-            },
+            }
             '/' => {
                 if self.match_char('/') {
                     // A comment goes until the end of the line
@@ -107,7 +107,7 @@ impl Lexer {
                         }
                         self.advance();
                     }
-                    
+
                     // Consume the */
                     if !self.is_at_end() {
                         self.advance(); // *
@@ -118,28 +118,28 @@ impl Lexer {
                 } else {
                     self.add_token(TokenType::Slash)
                 }
-            },
+            }
             '%' => {
                 if self.match_char('=') {
                     self.add_token(TokenType::PercentEqual)
                 } else {
                     self.add_token(TokenType::Percent)
                 }
-            },
+            }
             '=' => {
                 if self.match_char('=') {
                     self.add_token(TokenType::EqualEqual)
                 } else {
                     self.add_token(TokenType::Equal)
                 }
-            },
+            }
             '!' => {
                 if self.match_char('=') {
                     self.add_token(TokenType::BangEqual)
                 } else {
                     self.add_token(TokenType::Bang)
                 }
-            },
+            }
             '<' => {
                 if self.match_char('=') {
                     self.add_token(TokenType::LessEqual)
@@ -148,7 +148,7 @@ impl Lexer {
                 } else {
                     self.add_token(TokenType::Less)
                 }
-            },
+            }
             '>' => {
                 if self.match_char('=') {
                     self.add_token(TokenType::GreaterEqual)
@@ -157,28 +157,28 @@ impl Lexer {
                 } else {
                     self.add_token(TokenType::Greater)
                 }
-            },
+            }
             '&' => {
                 if self.match_char('&') {
                     self.add_token(TokenType::And)
                 } else {
                     self.add_token(TokenType::Ampersand)
                 }
-            },
+            }
             '|' => {
                 if self.match_char('|') {
                     self.add_token(TokenType::Or)
                 } else {
                     self.add_token(TokenType::Pipe)
                 }
-            },
+            }
             '^' => self.add_token(TokenType::Caret),
             '~' => self.add_token(TokenType::Tilde),
             ' ' | '\r' | '\t' => (), // Ignore whitespace
             '\n' => {
                 self.line += 1;
                 self.column = 1;
-            },
+            }
             _ => {
                 if self.is_digit(c) {
                     self.number();
@@ -276,7 +276,9 @@ impl Lexer {
         }
 
         let text = self.source[self.start..self.current].to_string();
-        let token_type = self.keywords.get(&text)
+        let token_type = self
+            .keywords
+            .get(&text)
             .cloned()
             .unwrap_or(TokenType::Identifier);
 
@@ -287,4 +289,3 @@ impl Lexer {
         }
     }
 }
-

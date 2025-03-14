@@ -1,20 +1,21 @@
 mod parser {
-    pub mod lexer;
-    pub mod token;
     pub mod ast;
+    pub mod lexer;
     pub mod parser;
+    pub mod token;
 }
 mod analyzer;
 mod codegen;
-mod transforms;
 mod compiler;
+mod config;
+mod transforms;
 
+use crate::compiler::{Compiler, ObfuscationLevel, OptimizationLevel};
 use std::env;
-use crate::compiler::{Compiler, OptimizationLevel, ObfuscationLevel};
 
 fn main() -> Result<(), String> {
     let args: Vec<String> = env::args().collect();
-    
+
     if args.len() < 3 {
         return Err("Usage: rustcc <source_file> <output_file> [options]\nOptions:\n  -O0, -O1, -O2: Optimization level\n  -obf0, -obf1, -obf2: Obfuscation level".to_string());
     }
@@ -47,9 +48,12 @@ fn main() -> Result<(), String> {
     match compiler.compile() {
         Ok(_) => {
             println!("Compilation successful!");
-            println!("Options: Optimization={:?}, Obfuscation={:?}", opt_level, obf_level);
+            println!(
+                "Options: Optimization={:?}, Obfuscation={:?}",
+                opt_level, obf_level
+            );
             Ok(())
-        },
+        }
         Err(e) => Err(e),
     }
 }

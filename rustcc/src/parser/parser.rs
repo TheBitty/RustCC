@@ -1,4 +1,4 @@
-use super::ast::{Program, Function, Statement, Expression, BinaryOp, Type};
+use super::ast::{BinaryOp, Expression, Function, Program, Statement, Type};
 use super::token::{Token, TokenType};
 
 pub struct Parser {
@@ -8,15 +8,12 @@ pub struct Parser {
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
-        Parser {
-            tokens,
-            current: 0,
-        }
+        Parser { tokens, current: 0 }
     }
 
     pub fn parse(&mut self) -> Result<Program, String> {
         let mut functions = Vec::new();
-        
+
         while !self.is_at_end() {
             if self.match_token(TokenType::Int) {
                 functions.push(self.parse_function()?);
@@ -28,21 +25,25 @@ impl Parser {
         // No struct declarations for now
         let structs = Vec::new();
 
-        Ok(Program { functions, structs, includes: Vec::new() })
+        Ok(Program {
+            functions,
+            structs,
+            includes: Vec::new(),
+        })
     }
 
     fn parse_function(&mut self) -> Result<Function, String> {
         // Already consumed 'int'
         let return_type = Type::Int; // Default to int for now
-        
+
         let name_token = self.consume(TokenType::Identifier, "Expected function name")?;
         let name = name_token.lexeme.clone();
-        
+
         self.consume(TokenType::LeftParen, "Expected '(' after function name")?;
-        
+
         // Parse parameters (currently we don't support parameters, just an empty list)
         let parameters = Vec::new();
-        
+
         self.consume(TokenType::RightParen, "Expected ')' after parameters")?;
         self.consume(TokenType::LeftBrace, "Expected '{' before function body")?;
 
@@ -69,11 +70,14 @@ impl Parser {
         } else if self.match_token(TokenType::Int) {
             let name_token = self.consume(TokenType::Identifier, "Expected variable name")?;
             let name = name_token.lexeme.clone();
-            
+
             self.consume(TokenType::Equal, "Expected '=' after variable name")?;
             let initializer = self.parse_expression()?;
-            self.consume(TokenType::Semicolon, "Expected ';' after variable declaration")?;
-            
+            self.consume(
+                TokenType::Semicolon,
+                "Expected ';' after variable declaration",
+            )?;
+
             Ok(Statement::VariableDeclaration {
                 name,
                 data_type: Some(Type::Int), // Default to int for now
@@ -130,7 +134,10 @@ impl Parser {
 
     fn parse_primary(&mut self) -> Result<Expression, String> {
         if self.match_token(TokenType::IntegerLiteral) {
-            let value = self.previous().lexeme.parse::<i32>()
+            let value = self
+                .previous()
+                .lexeme
+                .parse::<i32>()
                 .map_err(|_| "Invalid integer literal".to_string())?;
             Ok(Expression::IntegerLiteral(value))
         } else if self.match_token(TokenType::Identifier) {
@@ -194,4 +201,4 @@ impl Parser {
             Err(message.to_string())
         }
     }
-} 
+}

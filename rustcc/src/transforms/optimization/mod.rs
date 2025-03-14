@@ -7,4 +7,4 @@ pub use dead_code::DeadCodeEliminator;
 pub use function_inliner::FunctionInliner;
 
 #[cfg(test)]
-mod tests; 
+mod tests;

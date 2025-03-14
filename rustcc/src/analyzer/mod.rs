@@ -1,5 +1,5 @@
+use crate::parser::ast::{Expression, Function, Program, Statement};
 use std::collections::HashMap;
-use crate::parser::ast::{Program, Function, Statement, Expression};
 
 pub struct SemanticAnalyzer {
     variables: HashMap<String, bool>, // tracks if variables are defined
@@ -14,9 +14,8 @@ impl SemanticAnalyzer {
 
     pub fn analyze(&mut self, program: &Program) -> Result<(), String> {
         // Check if main function exists
-        let main_exists = program.functions.iter()
-            .any(|f| f.name == "main");
-        
+        let main_exists = program.functions.iter().any(|f| f.name == "main");
+
         if !main_exists {
             return Err("Program must have a main function".to_string());
         }
@@ -31,18 +30,23 @@ impl SemanticAnalyzer {
 
     fn analyze_function(&mut self, function: &Function) -> Result<(), String> {
         self.variables.clear(); // Clear variables for new function scope
-        
+
         // Analyze each statement in the function body
         for statement in &function.body {
             self.analyze_statement(statement)?;
         }
 
         // Check that function has a return statement
-        let has_return = function.body.iter()
+        let has_return = function
+            .body
+            .iter()
             .any(|stmt| matches!(stmt, Statement::Return(_)));
-        
+
         if !has_return {
-            return Err(format!("Function '{}' must have a return statement", function.name));
+            return Err(format!(
+                "Function '{}' must have a return statement",
+                function.name
+            ));
         }
 
         Ok(())
@@ -51,15 +55,19 @@ impl SemanticAnalyzer {
     fn analyze_statement(&mut self, statement: &Statement) -> Result<(), String> {
         match statement {
             Statement::Return(expr) => self.analyze_expression(expr),
-            Statement::VariableDeclaration { name, initializer, data_type: _ } => {
+            Statement::VariableDeclaration {
+                name,
+                initializer,
+                data_type: _,
+            } => {
                 // Check if variable is already defined
                 if self.variables.contains_key(name) {
                     return Err(format!("Variable '{}' is already defined", name));
                 }
-                
+
                 // Analyze the initializer expression
                 self.analyze_expression(initializer)?;
-                
+
                 // Mark variable as defined
                 self.variables.insert(name.clone(), true);
                 Ok(())
@@ -71,7 +79,11 @@ impl SemanticAnalyzer {
                 }
                 Ok(())
             }
-            Statement::If { condition, then_block, else_block } => {
+            Statement::If {
+                condition,
+                then_block,
+                else_block,
+            } => {
                 self.analyze_expression(condition)?;
                 self.analyze_statement(then_block)?;
                 if let Some(else_stmt) = else_block {
@@ -83,7 +95,12 @@ impl SemanticAnalyzer {
                 self.analyze_expression(condition)?;
                 self.analyze_statement(body)
             }
-            Statement::For { initializer, condition, increment, body } => {
+            Statement::For {
+                initializer,
+                condition,
+                increment,
+                body,
+            } => {
                 if let Some(init) = initializer {
                     self.analyze_statement(init)?;
                 }
@@ -124,9 +141,7 @@ impl SemanticAnalyzer {
                 self.analyze_expression(left)?;
                 self.analyze_expression(right)
             }
-            Expression::UnaryOperation { operand, .. } => {
-                self.analyze_expression(operand)
-            }
+            Expression::UnaryOperation { operand, .. } => self.analyze_expression(operand),
             Expression::Variable(name) => {
                 if !self.variables.contains_key(name) {
                     Err(format!("Variable '{}' is used before being defined", name))
@@ -144,25 +159,23 @@ impl SemanticAnalyzer {
                 self.analyze_expression(target)?;
                 self.analyze_expression(value)
             }
-            Expression::TernaryIf { condition, then_expr, else_expr } => {
+            Expression::TernaryIf {
+                condition,
+                then_expr,
+                else_expr,
+            } => {
                 self.analyze_expression(condition)?;
                 self.analyze_expression(then_expr)?;
                 self.analyze_expression(else_expr)
             }
-            Expression::Cast { expr, .. } => {
-                self.analyze_expression(expr)
-            }
+            Expression::Cast { expr, .. } => self.analyze_expression(expr),
             Expression::SizeOf { .. } => Ok(()),
             Expression::ArrayAccess { array, index } => {
                 self.analyze_expression(array)?;
                 self.analyze_expression(index)
             }
-            Expression::StructFieldAccess { object, .. } => {
-                self.analyze_expression(object)
-            }
-            Expression::PointerFieldAccess { pointer, .. } => {
-                self.analyze_expression(pointer)
-            }
+            Expression::StructFieldAccess { object, .. } => self.analyze_expression(object),
+            Expression::PointerFieldAccess { pointer, .. } => self.analyze_expression(pointer),
         }
     }
-} 
+}

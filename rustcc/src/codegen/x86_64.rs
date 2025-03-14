@@ -1,5 +1,5 @@
+use crate::parser::ast::{BinaryOp, Expression, Function, Program, Statement};
 use std::collections::HashMap;
-use crate::parser::ast::{Program, Function, Statement, Expression, BinaryOp};
 
 pub struct X86_64Generator {
     output: String,
@@ -36,13 +36,13 @@ impl X86_64Generator {
 
     fn generate_function(&mut self, function: &Function) {
         self.emit_line(&format!("_{}: ", function.name));
-        
+
         // Function prologue
         self.emit_line("    push %rbp");
         self.emit_line("    mov %rsp, %rbp");
-        
+
         // Reserve stack space for local variables
-        let stack_size = (function.body.len() * 8) as i32;  // 8 bytes per variable
+        let stack_size = (function.body.len() * 8) as i32; // 8 bytes per variable
         if stack_size > 0 {
             self.emit_line(&format!("    sub ${}, %rsp", stack_size));
         }
@@ -67,14 +67,22 @@ impl X86_64Generator {
                 self.emit_line("    pop %rbp");
                 self.emit_line("    ret");
             }
-            Statement::VariableDeclaration { name, initializer, data_type: _ } => {
+            Statement::VariableDeclaration {
+                name,
+                initializer,
+                data_type: _,
+            } => {
                 // Evaluate initializer
                 self.generate_expression(initializer);
-                
+
                 // Store result in stack
                 self.current_stack_offset -= 8;
-                self.variables.insert(name.clone(), self.current_stack_offset);
-                self.emit_line(&format!("    mov %rax, {}(%rbp)", self.current_stack_offset));
+                self.variables
+                    .insert(name.clone(), self.current_stack_offset);
+                self.emit_line(&format!(
+                    "    mov %rax, {}(%rbp)",
+                    self.current_stack_offset
+                ));
             }
             _ => {
                 // Other statement types not yet implemented
@@ -87,25 +95,29 @@ impl X86_64Generator {
             Expression::IntegerLiteral(value) => {
                 self.emit_line(&format!("    mov ${}, %rax", value));
             }
-            Expression::BinaryOperation { left, operator, right } => {
+            Expression::BinaryOperation {
+                left,
+                operator,
+                right,
+            } => {
                 // Generate code for right operand first
                 self.generate_expression(right);
                 // Save right operand
                 self.emit_line("    push %rax");
-                
+
                 // Generate code for left operand
                 self.generate_expression(left);
-                
+
                 // Restore right operand into %rcx
                 self.emit_line("    pop %rcx");
-                
+
                 // Perform operation
                 match operator {
                     BinaryOp::Add => self.emit_line("    add %rcx, %rax"),
                     BinaryOp::Subtract => self.emit_line("    sub %rcx, %rax"),
                     BinaryOp::Multiply => self.emit_line("    imul %rcx, %rax"),
                     BinaryOp::Divide => {
-                        self.emit_line("    cqo");  // Sign extend %rax into %rdx
+                        self.emit_line("    cqo"); // Sign extend %rax into %rdx
                         self.emit_line("    idiv %rcx");
                     }
                     _ => {
@@ -128,4 +140,4 @@ impl X86_64Generator {
         self.output.push_str(line);
         self.output.push('\n');
     }
-} 
+}

@@ -11,24 +11,64 @@ pub struct Token {
 #[allow(dead_code)]
 pub enum TokenType {
     // Keywords
-    Int, Char, Void, If, Else, While, For, Return, Break, Continue, Struct,
-    
+    Int,
+    Char,
+    Void,
+    If,
+    Else,
+    While,
+    For,
+    Return,
+    Break,
+    Continue,
+    Struct,
+
     // Identifiers and literals
-    Identifier, IntegerLiteral, CharLiteral, StringLiteral,
-    
+    Identifier,
+    IntegerLiteral,
+    CharLiteral,
+    StringLiteral,
+
     // Operators
-    Plus, Minus, Star, Slash, Percent,         // Arithmetic operators
-    Equal, PlusEqual, MinusEqual, StarEqual, SlashEqual, PercentEqual, // Assignment operators
-    EqualEqual, BangEqual, Less, LessEqual, Greater, GreaterEqual,     // Comparison operators
-    And, Or, Bang,                             // Logical operators
-    Ampersand, Pipe, Caret, Tilde, ShiftLeft, ShiftRight,              // Bitwise operators
-    
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    Percent, // Arithmetic operators
+    Equal,
+    PlusEqual,
+    MinusEqual,
+    StarEqual,
+    SlashEqual,
+    PercentEqual, // Assignment operators
+    EqualEqual,
+    BangEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual, // Comparison operators
+    And,
+    Or,
+    Bang, // Logical operators
+    Ampersand,
+    Pipe,
+    Caret,
+    Tilde,
+    ShiftLeft,
+    ShiftRight, // Bitwise operators
+
     // Delimiters
-    LeftParen, RightParen,       // ( )
-    LeftBrace, RightBrace,       // { }
-    LeftBracket, RightBracket,   // [ ]
-    Semicolon, Comma, Dot,       // ; , .
-    
+    LeftParen,
+    RightParen, // ( )
+    LeftBrace,
+    RightBrace, // { }
+    LeftBracket,
+    RightBracket, // [ ]
+    Semicolon,
+    Comma,
+    Dot, // ; , .
+
     // Special tokens
-    EOF, Error,
+    EOF,
+    Error,
 }

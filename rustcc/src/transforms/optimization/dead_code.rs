@@ -1,4 +1,4 @@
-use crate::parser::ast::{Program, Statement, Expression};
+use crate::parser::ast::{Expression, Program, Statement};
 use crate::transforms::Transform;
 use std::collections::HashSet;
 
@@ -7,25 +7,21 @@ use std::collections::HashSet;
 pub struct DeadCodeEliminator;
 
 impl Transform for DeadCodeEliminator {
-    fn apply(&self, program: &mut Program) -> Result<(), String> {
+    fn apply(&self, program: &mut Program) -> std::result::Result<(), String> {
         for function in &mut program.functions {
             // Find all used variables in the function
             let used_vars = self.find_used_variables(function);
-            
+
             // Remove declarations of unused variables
-            function.body.retain(|stmt| {
-                match stmt {
-                    Statement::VariableDeclaration { name, .. } => {
-                        used_vars.contains(name)
-                    }
-                    _ => true,
-                }
+            function.body.retain(|stmt| match stmt {
+                Statement::VariableDeclaration { name, .. } => used_vars.contains(name),
+                _ => true,
             });
         }
-        
+
         Ok(())
     }
-    
+
     fn name(&self) -> &'static str {
         "Dead Code Eliminator"
     }
@@ -34,15 +30,15 @@ impl Transform for DeadCodeEliminator {
 impl DeadCodeEliminator {
     fn find_used_variables(&self, function: &mut crate::parser::ast::Function) -> HashSet<String> {
         let mut used_vars = HashSet::new();
-        
+
         // Then find variables used in expressions by traversing all statements
         for statement in &function.body {
             self.find_used_vars_in_statement(statement, &mut used_vars);
         }
-        
+
         used_vars
     }
-    
+
     fn find_used_vars_in_statement(&self, statement: &Statement, used_vars: &mut HashSet<String>) {
         match statement {
             Statement::Return(expr) => {
@@ -59,7 +55,11 @@ impl DeadCodeEliminator {
                     self.find_used_vars_in_statement(stmt, used_vars);
                 }
             }
-            Statement::If { condition, then_block, else_block } => {
+            Statement::If {
+                condition,
+                then_block,
+                else_block,
+            } => {
                 self.find_used_vars_in_expr(condition, used_vars);
                 self.find_used_vars_in_statement(then_block, used_vars);
                 if let Some(else_stmt) = else_block {
@@ -70,7 +70,12 @@ impl DeadCodeEliminator {
                 self.find_used_vars_in_expr(condition, used_vars);
                 self.find_used_vars_in_statement(body, used_vars);
             }
-            Statement::For { initializer, condition, increment, body } => {
+            Statement::For {
+                initializer,
+                condition,
+                increment,
+                body,
+            } => {
                 if let Some(init) = initializer {
                     self.find_used_vars_in_statement(init, used_vars);
                 }
@@ -100,7 +105,7 @@ impl DeadCodeEliminator {
             }
         }
     }
-    
+
     fn find_used_vars_in_expr(&self, expr: &Expression, used_vars: &mut HashSet<String>) {
         match expr {
             Expression::Variable(name) => {
@@ -122,7 +127,11 @@ impl DeadCodeEliminator {
                 self.find_used_vars_in_expr(target, used_vars);
                 self.find_used_vars_in_expr(value, used_vars);
             }
-            Expression::TernaryIf { condition, then_expr, else_expr } => {
+            Expression::TernaryIf {
+                condition,
+                then_expr,
+                else_expr,
+            } => {
                 self.find_used_vars_in_expr(condition, used_vars);
                 self.find_used_vars_in_expr(then_expr, used_vars);
                 self.find_used_vars_in_expr(else_expr, used_vars);
@@ -140,10 +149,12 @@ impl DeadCodeEliminator {
             Expression::PointerFieldAccess { pointer, .. } => {
                 self.find_used_vars_in_expr(pointer, used_vars);
             }
-            Expression::IntegerLiteral(_) | Expression::StringLiteral(_) | 
-            Expression::CharLiteral(_) | Expression::SizeOf { .. } => {
+            Expression::IntegerLiteral(_)
+            | Expression::StringLiteral(_)
+            | Expression::CharLiteral(_)
+            | Expression::SizeOf { .. } => {
                 // These don't use variables
             }
         }
     }
-} 
+}
