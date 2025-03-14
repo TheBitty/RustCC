@@ -129,6 +129,7 @@ impl VariableObfuscator {
         }
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn obfuscate_expression(&self, expr: &mut Expression, var_map: &HashMap<String, String>) {
         match expr {
             Expression::Variable(name) => {
@@ -229,6 +230,7 @@ impl Transform for ControlFlowObfuscator {
 
 impl ControlFlowObfuscator {
     // Helper function to create complex but equivalent expressions
+    #[allow(clippy::only_used_in_recursion)]
     fn obfuscate_expression(&self, expr: Expression, rng: &mut impl Rng) -> Expression {
         match expr {
             // For integer literals, create complex expressions that evaluate to the same value
@@ -917,6 +919,7 @@ impl StringEncryptor {
     }
 
     // Find and encrypt string literals in expressions
+    #[allow(clippy::only_used_in_recursion)]
     fn encrypt_strings_in_expression(&self, expr: Expression, rng: &mut impl Rng) -> Expression {
         match expr {
             Expression::StringLiteral(s) => {

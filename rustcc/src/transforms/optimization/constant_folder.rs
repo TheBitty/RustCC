@@ -89,6 +89,7 @@ impl ConstantFolder {
         }
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn fold_expression(&self, expr: &Expression) -> Expression {
         match expr {
             Expression::BinaryOperation {

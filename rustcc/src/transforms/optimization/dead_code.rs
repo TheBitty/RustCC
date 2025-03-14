@@ -106,6 +106,7 @@ impl DeadCodeEliminator {
         }
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn find_used_vars_in_expr(&self, expr: &Expression, used_vars: &mut HashSet<String>) {
         match expr {
             Expression::Variable(name) => {

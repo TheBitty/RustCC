@@ -258,6 +258,7 @@ impl FunctionInliner {
         }
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn find_called_functions_in_expr(
         &self,
         expr: &Expression,
@@ -340,6 +341,7 @@ impl FunctionInliner {
         result
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn visit_node(
         &self,
         node: &str,
@@ -382,6 +384,7 @@ impl FunctionInliner {
         use crate::parser::ast::{Expression, Statement};
 
         // Process each statement in the block
+        #[allow(clippy::needless_range_loop)]
         for i in 0..statements.len() {
             match &mut statements[i] {
                 Statement::ExpressionStatement(expr) => {
@@ -646,7 +649,7 @@ impl FunctionInliner {
         }
     }
 
-    // Helper function to rename variables in statements to avoid conflicts
+    #[allow(clippy::only_used_in_recursion)]
     fn rename_variables_in_statement(
         &self,
         statement: &mut Statement,
