@@ -1,8 +1,8 @@
 pub mod obfuscation;
-pub mod optimization;
 pub mod api;
 pub mod string;
 pub mod control_flow;
+pub mod optimization;
 
 use crate::parser::ast::Program;
 

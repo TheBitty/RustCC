@@ -2,7 +2,7 @@ use crate::parser::lexer::Lexer;
 use crate::parser::parser::Parser;
 use crate::parser::ast::Program;
 use crate::transforms::Transform;
-use crate::transforms::optimization::{ConstantFolder, DeadCodeEliminator};
+use crate::transforms::optimization::{ConstantFolder, DeadCodeEliminator, FunctionInliner};
 use crate::transforms::obfuscation::{VariableObfuscator, ControlFlowObfuscator, DeadCodeInserter, StringEncryptor};
 use crate::analyzer::SemanticAnalyzer;
 use crate::codegen::CodeGenerator;
@@ -14,6 +14,7 @@ pub struct Compiler {
     output_file: String,
     optimization_level: OptimizationLevel,
     obfuscation_level: ObfuscationLevel,
+    language_dialect: LanguageDialect,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -30,6 +31,16 @@ pub enum ObfuscationLevel {
     Aggressive,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
+pub enum LanguageDialect {
+    C89,
+    C99,
+    C11,
+    C17,
+    CPlusPlus,
+}
+
 impl Compiler {
     pub fn new(source_file: String, output_file: String) -> Self {
         Compiler {
@@ -37,6 +48,7 @@ impl Compiler {
             output_file,
             optimization_level: OptimizationLevel::None,
             obfuscation_level: ObfuscationLevel::None,
+            language_dialect: LanguageDialect::C99,
         }
     }
     
@@ -50,8 +62,14 @@ impl Compiler {
         self
     }
     
+    #[allow(dead_code)]
+    pub fn with_language_dialect(mut self, dialect: LanguageDialect) -> Self {
+        self.language_dialect = dialect;
+        self
+    }
+    
     pub fn compile(&self) -> Result<(), String> {
-        println!("Compiling {} to {}", self.source_file, self.output_file);
+        println!("Compiling {} to {} with dialect {:?}", self.source_file, self.output_file, self.language_dialect);
         
         // Read the source file
         let source = match fs::read_to_string(&self.source_file) {
@@ -117,6 +135,7 @@ impl Compiler {
             OptimizationLevel::Full => {
                 transforms.push(Box::new(ConstantFolder));
                 transforms.push(Box::new(DeadCodeEliminator));
+                transforms.push(Box::new(FunctionInliner::new(10, false)));
             }
         }
         

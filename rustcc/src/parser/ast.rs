@@ -179,4 +179,5 @@ pub struct Function {
 pub struct Program {
     pub functions: Vec<Function>,
     pub structs: Vec<StructDeclaration>,
+    pub includes: Vec<String>, // List of include directives for C code
 } 

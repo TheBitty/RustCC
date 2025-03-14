@@ -28,7 +28,7 @@ impl Parser {
         // No struct declarations for now
         let structs = Vec::new();
 
-        Ok(Program { functions, structs })
+        Ok(Program { functions, structs, includes: Vec::new() })
     }
 
     fn parse_function(&mut self) -> Result<Function, String> {
