@@ -34,7 +34,7 @@ RustCC's obfuscation techniques are specifically designed to defeat:
 
 ```bash
 # Clone the repository
-git clone https://github.com/TheBittyrustcc.git
+git clone https://github.com/TheBitty/rustcc.git
 cd rustcc
 
 # Build the project
