@@ -37,7 +37,13 @@ jobs:
       - name: Install LLVM and Clang dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y llvm-dev libclang-dev clang libpolly-dev
+          sudo apt-add-repository 'deb http://apt.llvm.org/noble/ llvm-toolchain-noble-16 main'
+          sudo apt-get update
+          sudo apt-get install -y llvm-16-dev libpolly-16-dev
+          # If specific version doesn't work, try installing the whole LLVM package
+          if [ $? -ne 0 ]; then
+            sudo apt-get install -y llvm-16 llvm-16-dev
+          fi
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
