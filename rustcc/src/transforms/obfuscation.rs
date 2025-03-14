@@ -1,8 +1,6 @@
-use crate::parser::ast::{
-    BinaryOp, Expression, Program, Statement, Type, UnaryOp,
-};
+use crate::parser::ast::{BinaryOp, Expression, Program, Statement, Type, UnaryOp};
 use crate::transforms::Transform;
-use rand::{distributions::Alphanumeric, Rng, seq::SliceRandom, thread_rng};
+use rand::{distributions::Alphanumeric, seq::SliceRandom, thread_rng, Rng};
 use std::collections::HashMap;
 
 /// Variable Name Obfuscation

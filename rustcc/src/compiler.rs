@@ -92,21 +92,21 @@ impl Compiler {
         self.language_dialect = dialect;
         self
     }
-    
+
     /// Set the configuration
     #[allow(dead_code)]
     pub fn with_config(mut self, config: Config) -> Self {
         self.config = Some(config);
         self
     }
-    
+
     /// Set the verbose flag
     #[allow(dead_code)]
     pub fn with_verbose(mut self, verbose: bool) -> Self {
         self.verbose = verbose;
         self
     }
-    
+
     /// Load configuration from a file
     #[allow(dead_code)]
     pub fn with_config_file<P: AsRef<Path>>(mut self, path: P) -> Result<Self, String> {
