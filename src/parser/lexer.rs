@@ -1,1 +1,0 @@
-                    while !(self.is_at_end() || self.peek() == '*' && self.peek_next() == '/') { 
