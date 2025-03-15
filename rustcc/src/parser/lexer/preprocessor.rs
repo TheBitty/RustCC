@@ -167,7 +167,7 @@ impl Lexer {
                 self.process_macro_invocation();
             } else {
                 // Simple macro name
-                let macro_name = self.source[self.start..self.current].to_string();
+                let _macro_name = self.source[self.start..self.current].to_string();
                 // In a real implementation, we would expand the macro here
             }
         }
@@ -201,7 +201,7 @@ impl Lexer {
         }
 
         // Get the macro name
-        let macro_name = self.source[self.start..self.current].to_string();
+        let _macro_name = self.source[self.start..self.current].to_string();
 
         // Check if it's a function-like macro
         let is_function_like = self.peek() == '(';
@@ -401,6 +401,7 @@ impl Lexer {
     }
 
     /// Process a macro replacement
+    #[allow(dead_code)]
     pub(crate) fn process_macro_replacement(&mut self) {
         // This is a simplified implementation
         // In a real compiler, we would:
@@ -447,7 +448,7 @@ impl Lexer {
         }
 
         // Get the macro name
-        let macro_name = self.source[self.start..self.current].to_string();
+        let _macro_name = self.source[self.start..self.current].to_string();
 
         // Remove the macro from the defines table
         // In a real implementation, we would do this
@@ -482,7 +483,7 @@ impl Lexer {
         }
 
         // Get the macro name
-        let macro_name = self.source[self.start..self.current].to_string();
+        let _macro_name = self.source[self.start..self.current].to_string();
 
         // In a real implementation, we would check if the macro is defined
         // and conditionally include/exclude code based on that
@@ -516,7 +517,7 @@ impl Lexer {
         }
 
         // Get the macro name
-        let macro_name = self.source[self.start..self.current].to_string();
+        let _macro_name = self.source[self.start..self.current].to_string();
 
         // In a real implementation, we would check if the macro is not defined
         // and conditionally include/exclude code based on that
@@ -577,7 +578,7 @@ impl Lexer {
         }
 
         // Get the pragma name
-        let pragma_name = self.source[self.start..self.current].to_string();
+        let _pragma_name = self.source[self.start..self.current].to_string();
 
         // In a real implementation, we would handle specific pragmas
         // For now, we'll just skip to the end of the line
@@ -640,7 +641,7 @@ impl Lexer {
         // Get the line number
         if self.start < self.current {
             let line_str = self.source[self.start..self.current].to_string();
-            if let Ok(line_num) = line_str.parse::<usize>() {
+            if let Ok(_line_num) = line_str.parse::<usize>() {
                 // In a real implementation, we would update the line number
                 // self.line = line_num;
             }
@@ -662,7 +663,7 @@ impl Lexer {
             }
 
             // Get the filename
-            let filename = self.source[self.start..self.current].to_string();
+            let _filename = self.source[self.start..self.current].to_string();
             
             // In a real implementation, we would update the current filename
             
@@ -719,7 +720,7 @@ impl Lexer {
         }
 
         // Get the macro name
-        let macro_name = self.source[self.start..self.current].to_string();
+        let _macro_name = self.source[self.start..self.current].to_string();
 
         // In a real implementation, we would check if the macro is defined
         // and conditionally include/exclude code based on that
@@ -753,7 +754,7 @@ impl Lexer {
         }
 
         // Get the macro name
-        let macro_name = self.source[self.start..self.current].to_string();
+        let _macro_name = self.source[self.start..self.current].to_string();
 
         // In a real implementation, we would check if the macro is not defined
         // and conditionally include/exclude code based on that

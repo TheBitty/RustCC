@@ -47,6 +47,7 @@ pub struct Error {
 
 /// Error kind for the parser
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum ErrorKind {
     /// Lexical errors
     InvalidCharacter(char),
@@ -217,12 +218,14 @@ impl Error {
     }
 
     /// Add file information to the error
+    #[allow(dead_code)]
     pub fn with_file(mut self, file: String) -> Self {
         self.file = Some(file);
         self
     }
 
     /// Add context to the error
+    #[allow(dead_code)]
     pub fn with_context(mut self, context: String) -> Self {
         self.context = Some(context);
         self

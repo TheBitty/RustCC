@@ -65,9 +65,9 @@ impl DeadCodeInserter {
         rng: &mut impl Rng,
     ) {
         // Add a few variable declarations with complex initializers
-        for var_name in dummy_vars.iter().take(3) {
-            // Create a complex initialization expression
-            let initializer = self.create_complex_expression(rng);
+        for _var_name in dummy_vars.iter().take(3) {
+            // Create a complex initializer
+            let _initializer = self.create_complex_expression(rng);
 
             // Create the variable declaration
             let decl = Statement::VariableDeclaration {

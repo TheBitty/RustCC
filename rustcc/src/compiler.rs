@@ -159,29 +159,29 @@ impl Compiler {
         
         // Add include paths
         for path in &self.include_paths {
-            preprocessor = preprocessor.add_include_dir(path);
+            preprocessor.add_include_dir(path.to_str().unwrap_or(""));
         }
         
         // Add defines from compiler config
         if let Some(config) = &self.config {
             for (name, value) in &config.preprocessor.defines {
                 if let Some(val) = value {
-                    preprocessor = preprocessor.add_define(name, val);
+                    preprocessor.add_define(name, val);
                 }
             }
             
             // Add include paths from compiler config
             for path in &config.preprocessor.include_paths {
-                preprocessor = preprocessor.add_include_dir(path);
+                preprocessor.add_include_dir(path);
             }
             
             // Set keep comments option
-            preprocessor = preprocessor.keep_comments(config.preprocessor.keep_comments);
+            preprocessor.keep_comments(config.preprocessor.keep_comments);
         }
         
         // Add defines from compiler instance
         for (name, value) in &self.defines {
-            preprocessor = preprocessor.add_define(name, value);
+            preprocessor.add_define(name, value);
         }
         
         // Preprocess the source file
@@ -189,7 +189,12 @@ impl Compiler {
             println!("Preprocessing source file...");
         }
         
-        let preprocessed_path = preprocessor.preprocess_file(&source_path)?;
+        let preprocessed_content = preprocessor.preprocess_file(source_path.to_str().unwrap_or(""))?;
+        
+        // Create a temporary file for the preprocessed content
+        let preprocessed_path = PathBuf::from(format!("{}.i", self.source_file));
+        fs::write(&preprocessed_path, &preprocessed_content)
+            .map_err(|e| format!("Failed to write preprocessed file: {}", e))?;
         
         // If preprocess_only is true, just copy the preprocessed file to the output path and return
         if self.preprocess_only {
@@ -197,24 +202,9 @@ impl Compiler {
                 println!("Preprocessing only, copying to output file...");
             }
             
-            // Read the preprocessed file
-            let preprocessed_content = fs::read_to_string(&preprocessed_path)
-                .map_err(|e| format!("Failed to read preprocessed file: {}", e))?;
-                
-            // Create output directory if it doesn't exist
-            if let Some(parent) = Path::new(&output_path).parent() {
-                fs::create_dir_all(parent)
-                    .map_err(|e| format!("Failed to create output directory: {}", e))?;
-            }
-            
-            // Write to the output file
-            fs::write(&output_path, preprocessed_content)
-                .map_err(|e| format!("Failed to write output file: {}", e))?;
-                
-            if self.verbose {
-                println!("Preprocessing completed successfully");
-            }
-            
+            // Copy the preprocessed file to the output path
+            fs::copy(&preprocessed_path, &output_path)
+                .map_err(|e| format!("Failed to copy preprocessed file to output: {}", e))?;
             return Ok(());
         }
         

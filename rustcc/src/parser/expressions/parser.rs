@@ -1,5 +1,5 @@
-use crate::parser::error::{self, Error, ErrorKind, Result};
-use crate::parser::ast::{BinaryOp, Expression, OperatorType, Type, UnaryOp, AtomicOp};
+use crate::parser::error::{self, Result};
+use crate::parser::ast::{BinaryOp, Expression, OperatorType, UnaryOp};
 use crate::parser::token::{Token, TokenType};
 use crate::parser::Parser;
 

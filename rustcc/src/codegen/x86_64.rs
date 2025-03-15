@@ -237,7 +237,7 @@ impl X86_64Generator {
         let mut stack_size = 0;
         
         // Account for parameters
-        for (i, param) in function.parameters.iter().enumerate() {
+        for (i, _param) in function.parameters.iter().enumerate() {
             if i < 6 {  // First 6 parameters are in registers
                 stack_size += 8;  // 8 bytes per parameter
             }
@@ -258,22 +258,24 @@ impl X86_64Generator {
         
         // Store parameter values in the stack
         for (i, param) in function.parameters.iter().enumerate() {
-            // The first 6 parameters use registers in System V ABI
-            // (rdi, rsi, rdx, rcx, r8, r9)
-            let reg = match i {
-                0 => "%rdi",
-                1 => "%rsi",
-                2 => "%rdx",
-                3 => "%rcx",
-                4 => "%r8",
-                5 => "%r9",
-                _ => continue, // Stack parameters not handled yet
-            };
-            
-            // Allocate stack space for the parameter
-            self.current_stack_offset -= 8;
-            self.variables.insert(param.name.clone(), self.current_stack_offset);
-            self.emit_line(&format!("    mov {}, {}(%rbp)", reg, self.current_stack_offset));
+            if i < 6 {  // First 6 parameters are in registers
+                // The first 6 parameters use registers in System V ABI
+                // (rdi, rsi, rdx, rcx, r8, r9)
+                let reg = match i {
+                    0 => "%rdi",
+                    1 => "%rsi",
+                    2 => "%rdx",
+                    3 => "%rcx",
+                    4 => "%r8",
+                    5 => "%r9",
+                    _ => unreachable!(),
+                };
+                
+                // Store the parameter in the stack
+                self.current_stack_offset -= 8;
+                self.variables.insert(param.name.clone(), self.current_stack_offset);
+                self.emit_line(&format!("    mov {}, {}(%rbp)", reg, self.current_stack_offset));
+            }
         }
 
         // Generate code for function body
@@ -363,7 +365,7 @@ impl X86_64Generator {
                 self.emit_line("    pop %rbp");
                 self.emit_line("    ret");
             }
-            Statement::VariableDeclaration { name, data_type, initializer, is_global, alignment: _ } => {
+            Statement::VariableDeclaration { name, data_type: _, initializer, is_global: _, alignment: _ } => {
                 // Evaluate initializer
                 self.generate_expression(initializer);
 

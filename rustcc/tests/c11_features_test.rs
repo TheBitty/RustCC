@@ -2,7 +2,7 @@
 mod c11_features_tests {
     use rustcc::parser::lexer::Lexer;
     use rustcc::parser::Parser;
-    use rustcc::parser::ast::{Expression, Statement, Type};
+    
 
     #[test]
     fn test_generic_selection() {

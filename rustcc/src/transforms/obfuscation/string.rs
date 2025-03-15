@@ -1,7 +1,6 @@
 use crate::parser::ast::{Expression, Function, Program, Statement, Type};
 use crate::transforms::Transform;
 use rand::{thread_rng, Rng};
-use std::collections::HashSet;
 
 /// String Encryption Obfuscation
 /// Encrypts string literals to make them harder to identify

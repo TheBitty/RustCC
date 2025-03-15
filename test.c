@@ -1,5 +1,5 @@
+#include "test_macro.h"
+
 int main() {
-    int x = 10;
-    int y = 20;
-    return x + y;
+    return TEST_MACRO;
 } 

@@ -265,6 +265,7 @@ impl Type {
     }
 
     /// Check if this type is compatible with another type
+    #[allow(dead_code)]
     pub fn is_compatible_with(&self, other: &Type) -> bool {
         // Remove qualifiers for compatibility check
         let self_base = self.remove_qualifiers();
@@ -317,11 +318,7 @@ impl Type {
             
             // Pointers to compatible types are compatible
             (Type::Pointer(s_inner), Type::Pointer(o_inner)) => 
-                s_inner.is_compatible_with(o_inner),
-                
-            // Pointers to void are compatible with any other pointer type
-            (Type::Pointer(s_inner), Type::Pointer(o_inner)) if 
-                matches!(**s_inner, Type::Void) || matches!(**o_inner, Type::Void) => true,
+                s_inner.is_compatible_with(o_inner) || matches!(**s_inner, Type::Void) || matches!(**o_inner, Type::Void),
                 
             // Arrays of compatible types are compatible
             (Type::Array(s_inner, _), Type::Array(o_inner, _)) => 
@@ -367,6 +364,7 @@ impl Type {
     }
     
     /// Remove qualifiers from a type
+    #[allow(dead_code)]
     fn remove_qualifiers(&self) -> &Type {
         match self {
             Type::Const(inner) => inner.remove_qualifiers(),
@@ -420,6 +418,7 @@ pub struct Program {
 
 // C11 Atomic operations
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum AtomicOp {
     Load,
     Store,

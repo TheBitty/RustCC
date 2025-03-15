@@ -61,7 +61,7 @@ impl Parser {
         self.consume(TokenType::RightParen, "Expected ')' after parameters")?;
 
         // Check for _Noreturn specifier (C11)
-        let is_noreturn = self.match_token(TokenType::Noreturn);
+        let _is_noreturn = self.match_token(TokenType::Noreturn);
 
         // Handle function declarations without bodies
         if self.match_token(TokenType::Semicolon) {
@@ -107,7 +107,7 @@ impl Parser {
             
             let alignment = if self.is_type_specifier() {
                 // _Alignas(type)
-                let type_name = self.parse_type()?;
+                let _type_name = self.parse_type()?;
                 // In a real implementation, we would compute the alignment of the type
                 // For now, we'll just use a placeholder value
                 Some(8)
@@ -166,7 +166,7 @@ impl Parser {
             
             let alignment = if self.is_type_specifier() {
                 // _Alignas(type)
-                let type_name = self.parse_type()?;
+                let _type_name = self.parse_type()?;
                 // In a real implementation, we would compute the alignment of the type
                 // For now, we'll just use a placeholder value
                 Some(8)
@@ -368,7 +368,7 @@ impl Parser {
                     array_type
                 } else if self.match_token(TokenType::Colon) {
                     // Bit field
-                    let bit_width = self.parse_expression()?;
+                    let _bit_width = self.parse_expression()?;
                     // In a real implementation, we would store the bit width
                     // For now, we'll just use the original type
                     field_type.clone()
@@ -417,10 +417,10 @@ impl Parser {
         // Skip the 'typedef' keyword (already consumed)
 
         // Parse the base type
-        let base_type = self.parse_type()?;
+        let _base_type = self.parse_type()?;
 
         // Parse the new type name
-        let new_type_name = self
+        let _new_type_name = self
             .consume(TokenType::Identifier, "Expected new type name")?
             .lexeme
             .clone();

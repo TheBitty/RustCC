@@ -190,38 +190,47 @@ pub enum TokenType {
 
 // Implement aliases for token types to maintain compatibility
 impl TokenType {
+    #[allow(dead_code)]
     pub fn is_logical_or(&self) -> bool {
         matches!(self, TokenType::Or | TokenType::LogicalOr)
     }
 
+    #[allow(dead_code)]
     pub fn is_logical_and(&self) -> bool {
         matches!(self, TokenType::And | TokenType::LogicalAnd)
     }
 
+    #[allow(dead_code)]
     pub fn is_bitwise_or(&self) -> bool {
         matches!(self, TokenType::Pipe | TokenType::BitwiseOr)
     }
 
+    #[allow(dead_code)]
     pub fn is_bitwise_and(&self) -> bool {
         matches!(self, TokenType::Ampersand | TokenType::BitwiseAnd)
     }
 
+    #[allow(dead_code)]
     pub fn is_bitwise_xor(&self) -> bool {
         matches!(self, TokenType::Caret | TokenType::BitwiseXor)
     }
 
+    #[allow(dead_code)]
     pub fn is_left_shift(&self) -> bool {
         matches!(self, TokenType::ShiftLeft | TokenType::LeftShift)
     }
 
+    #[allow(dead_code)]
     pub fn is_right_shift(&self) -> bool {
         matches!(self, TokenType::ShiftRight | TokenType::RightShift)
     }
 
+    #[allow(dead_code)]
     pub fn is_increment(&self) -> bool {
         matches!(self, TokenType::Increment | TokenType::PlusPlus)
     }
 
+    #[allow(dead_code)]
     pub fn is_decrement(&self) -> bool {
         matches!(self, TokenType::Decrement | TokenType::MinusMinus)
     }

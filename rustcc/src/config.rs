@@ -120,6 +120,7 @@ impl Config {
     }
 
     /// Get the optimization level from the configuration
+    #[allow(dead_code)]
     pub fn get_optimization_level(&self) -> OptimizationLevel {
         match self.optimization.level.to_lowercase().as_str() {
             "none" => OptimizationLevel::None,
@@ -139,7 +140,8 @@ impl Config {
         }
     }
 
-    /// Get the include paths from the preprocessor configuration
+    /// Get the include paths from the configuration
+    #[allow(dead_code)]
     pub fn get_include_paths(&self) -> Vec<PathBuf> {
         self.preprocessor.include_paths.iter()
             .map(|path| PathBuf::from(path))

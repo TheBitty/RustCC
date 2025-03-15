@@ -255,6 +255,7 @@ impl Parser {
     }
 
     // Helper method to create an unexpected EOF error
+    #[allow(dead_code)]
     fn unexpected_eof_error(&self, expected: &str) -> error::Error {
         let last_token = self.tokens.last().unwrap();
         let kind = error::ErrorKind::UnexpectedEOF(expected.to_string());
