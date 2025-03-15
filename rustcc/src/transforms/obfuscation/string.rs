@@ -60,12 +60,14 @@ impl StringEncryptor {
                 data_type: Some(Type::Array(Box::new(Type::Char), Some(1024))),
                 initializer: Expression::ArrayLiteral(vec![Expression::CharLiteral('\0')]),
                 is_global: false,
+                alignment: None,
             },
             Statement::VariableDeclaration {
                 name: "i".to_string(),
                 data_type: Some(Type::Int),
                 initializer: Expression::IntegerLiteral(0),
                 is_global: false,
+                alignment: None,
             },
             Statement::While {
                 condition: Expression::BinaryOperation {
@@ -251,11 +253,13 @@ impl StringEncryptor {
                 data_type,
                 initializer,
                 is_global,
+                alignment,
             } => Statement::VariableDeclaration {
-                name,
-                data_type,
+                name: name.clone(),
+                data_type: data_type.clone(),
                 initializer: self.encrypt_strings_in_expression(initializer, rng, encrypted_strings),
                 is_global,
+                alignment: alignment.clone(),
             },
             Statement::ExpressionStatement(expr) => {
                 Statement::ExpressionStatement(self.encrypt_strings_in_expression(expr, rng, encrypted_strings))

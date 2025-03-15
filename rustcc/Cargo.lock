@@ -353,6 +353,7 @@ dependencies = [
  "clap",
  "inkwell",
  "rand",
+ "regex",
  "serde",
  "serde_json",
  "tempfile",

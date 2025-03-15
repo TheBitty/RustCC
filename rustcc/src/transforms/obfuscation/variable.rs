@@ -62,6 +62,7 @@ impl VariableObfuscator {
                 initializer,
                 data_type: _,
                 is_global: _,
+                alignment: _,
             } => {
                 if let Some(new_name) = var_map.get(name) {
                     *name = new_name.clone();
@@ -74,6 +75,7 @@ impl VariableObfuscator {
                 data_type: _,
                 size: _,
                 is_global: _,
+                alignment: _,
             } => {
                 if let Some(new_name) = var_map.get(name) {
                     *name = new_name.clone();
@@ -139,6 +141,10 @@ impl VariableObfuscator {
                     }
                 }
             }
+            // Add a catch-all for C11 features and other statements
+            _ => {
+                // No variable names to obfuscate in these statements
+            }
         }
     }
 
@@ -198,6 +204,10 @@ impl VariableObfuscator {
             }
             Expression::PointerFieldAccess { pointer, .. } => {
                 self.obfuscate_expression(pointer, var_map);
+            }
+            // Add a catch-all for C11 features and other expressions
+            _ => {
+                // No variable names to obfuscate in these expressions
             }
         }
     }

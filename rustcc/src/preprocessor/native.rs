@@ -4,6 +4,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use tempfile::NamedTempFile;
+use regex;
 
 /// A native Rust implementation of the C preprocessor
 pub struct NativePreprocessor {
@@ -18,8 +19,89 @@ pub struct NativePreprocessor {
 impl NativePreprocessor {
     /// Create a new native preprocessor
     pub fn new() -> Self {
+        let mut include_dirs = Vec::new();
+        
+        // Add platform-specific standard include paths
+        #[cfg(target_os = "linux")]
+        {
+            include_dirs.push(PathBuf::from("/usr/include"));
+            include_dirs.push(PathBuf::from("/usr/local/include"));
+            
+            // GCC includes - detect version
+            if let Ok(entries) = fs::read_dir("/usr/lib/gcc") {
+                for entry in entries.flatten() {
+                    if entry.path().is_dir() {
+                        if let Ok(versions) = fs::read_dir(entry.path()) {
+                            for ver in versions.flatten() {
+                                if ver.path().is_dir() {
+                                    let include_path = ver.path().join("include");
+                                    if include_path.exists() {
+                                        include_dirs.push(include_path);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        #[cfg(target_os = "macos")]
+        {
+            include_dirs.push(PathBuf::from("/usr/include"));
+            include_dirs.push(PathBuf::from("/usr/local/include"));
+            
+            // Check for Xcode Command Line Tools or SDK includes
+            let xcode_paths = vec![
+                "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include",
+                "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include",
+            ];
+            
+            for path in xcode_paths {
+                let path_buf = PathBuf::from(path);
+                if path_buf.exists() {
+                    include_dirs.push(path_buf);
+                }
+            }
+            
+            // Check brew includes
+            let brew_path = PathBuf::from("/opt/homebrew/include");
+            if brew_path.exists() {
+                include_dirs.push(brew_path);
+            }
+        }
+        
+        #[cfg(target_os = "windows")]
+        {
+            // MSVC includes
+            if let Ok(program_files) = std::env::var("ProgramFiles(x86)") {
+                let msvc_path = PathBuf::from(program_files).join("Microsoft Visual Studio");
+                if msvc_path.exists() {
+                    if let Ok(versions) = fs::read_dir(&msvc_path) {
+                        for ver in versions.flatten() {
+                            let include_path = ver.path().join("VC").join("include");
+                            if include_path.exists() {
+                                include_dirs.push(include_path);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // MinGW includes
+            if let Ok(program_files) = std::env::var("ProgramFiles") {
+                let mingw_path = PathBuf::from(program_files).join("MinGW").join("include");
+                if mingw_path.exists() {
+                    include_dirs.push(mingw_path);
+                }
+            }
+        }
+        
+        // Add current directory
+        include_dirs.push(PathBuf::from("."));
+        
         NativePreprocessor {
-            include_dirs: vec![PathBuf::from("/usr/include"), PathBuf::from("/usr/local/include")],
+            include_dirs,
             defines: HashMap::new(),
             keep_comments: false,
         }
@@ -27,7 +109,11 @@ impl NativePreprocessor {
 
     /// Add an include directory
     pub fn add_include_dir<P: AsRef<Path>>(mut self, dir: P) -> Self {
-        self.include_dirs.push(dir.as_ref().to_path_buf());
+        let path = dir.as_ref().to_path_buf();
+        // Add the directory only if it exists
+        if path.exists() && path.is_dir() {
+            self.include_dirs.push(path);
+        }
         self
     }
 
@@ -49,58 +135,6 @@ impl NativePreprocessor {
     pub fn keep_comments(mut self, keep: bool) -> Self {
         self.keep_comments = keep;
         self
-    }
-
-    /// Process a #include directive
-    fn process_include(&self, line: &str, current_file_dir: &Path) -> Result<String, String> {
-        // Extract the file path from the #include directive
-        let file_path = if line.contains('<') && line.contains('>') {
-            // System include path: #include <file>
-            let start = line.find('<').unwrap() + 1;
-            let end = line.find('>').unwrap();
-            &line[start..end]
-        } else if line.contains('"') {
-            // Local include path: #include "file"
-            let start = line.find('"').unwrap() + 1;
-            let end = line.rfind('"').unwrap();
-            &line[start..end]
-        } else {
-            return Err(format!("Invalid #include directive: {}", line));
-        };
-
-        // Try to find the file in the include directories or relative to the current file
-        let mut file_content = String::new();
-        let mut found = false;
-
-        // First try relative to current file (for #include "file")
-        if line.contains('"') {
-            let local_path = current_file_dir.join(file_path);
-            if local_path.exists() {
-                file_content = fs::read_to_string(&local_path)
-                    .map_err(|e| format!("Failed to read include file {}: {}", local_path.display(), e))?;
-                found = true;
-            }
-        }
-
-        // If not found, try include directories
-        if !found {
-            for dir in &self.include_dirs {
-                let include_path = dir.join(file_path);
-                if include_path.exists() {
-                    file_content = fs::read_to_string(&include_path)
-                        .map_err(|e| format!("Failed to read include file {}: {}", include_path.display(), e))?;
-                    found = true;
-                    break;
-                }
-            }
-        }
-
-        if !found {
-            return Err(format!("Include file not found: {}", file_path));
-        }
-
-        // Process the included file
-        Ok(self.preprocess_content(&file_content, current_file_dir)?)
     }
 
     /// Process a #define directive
@@ -129,15 +163,27 @@ impl NativePreprocessor {
         // Return true if the macro is defined (or not defined for ifndef)
         self.defines.contains_key(macro_name) != is_ifndef
     }
+    
+    /// Expand macros in a line of code
+    fn expand_macros(&self, line: &str) -> String {
+        let mut result = line.to_string();
+        
+        // Simple macro expansion - replace each defined macro with its value
+        for (name, value) in &self.defines {
+            // Use word boundaries to avoid partial replacement
+            let pattern = format!(r"\b{}\b", regex::escape(name));
+            if let Ok(regex) = regex::Regex::new(&pattern) {
+                result = regex.replace_all(&result, value).to_string();
+            }
+        }
+        
+        result
+    }
 
     /// Preprocess the content of a file
     fn preprocess_content(&self, content: &str, current_dir: &Path) -> Result<String, String> {
         let mut result = String::new();
-        let mut in_comment = false;
-        let mut skip_until_endif = false;
-        let mut skip_until_else = false;
-        let mut conditional_stack: Vec<bool> = Vec::new();
-
+        
         // Create a mutable copy of self to handle #define directives
         let mut preprocessor = NativePreprocessor {
             include_dirs: self.include_dirs.clone(),
@@ -145,102 +191,132 @@ impl NativePreprocessor {
             keep_comments: self.keep_comments,
         };
         
+        // Track conditional compilation state
+        let mut conditional_stack: Vec<bool> = Vec::new();
+        let mut skip_until_endif = false;
+        
+        // Process each line
         for line in content.lines() {
             let trimmed = line.trim();
             
-            // Skip empty lines
-            if trimmed.is_empty() {
-                result.push('\n');
-                continue;
-            }
-            
-            // Handle multi-line comments
-            if in_comment {
-                if trimmed.contains("*/") {
-                    in_comment = false;
-                    if self.keep_comments {
-                        result.push_str(line);
-                        result.push('\n');
-                    }
-                } else if self.keep_comments {
-                    result.push_str(line);
-                    result.push('\n');
-                }
-                continue;
-            }
-            
-            // Check for comment start
-            if trimmed.contains("/*") && !trimmed.contains("*/") {
-                in_comment = true;
-                if self.keep_comments {
-                    result.push_str(line);
-                    result.push('\n');
-                }
-                continue;
-            }
-            
-            // Skip single-line comments
-            if trimmed.starts_with("//") {
-                if self.keep_comments {
-                    result.push_str(line);
-                    result.push('\n');
-                }
-                continue;
-            }
-            
-            // Process preprocessor directives
+            // Handle preprocessor directives
             if trimmed.starts_with('#') {
                 // Handle conditional compilation
-                if trimmed.starts_with("#ifdef") || trimmed.starts_with("#ifndef") {
-                    let is_ifndef = trimmed.starts_with("#ifndef");
-                    let condition_met = preprocessor.evaluate_conditional(trimmed, is_ifndef);
-                    
-                    conditional_stack.push(condition_met);
-                    
-                    if !condition_met {
-                        skip_until_endif = true;
-                        skip_until_else = true;
-                    }
-                    
+                if trimmed.starts_with("#ifdef") {
+                    let is_defined = preprocessor.evaluate_conditional(trimmed, false);
+                    conditional_stack.push(is_defined);
+                    skip_until_endif = !is_defined || skip_until_endif;
                     continue;
-                } else if trimmed.starts_with("#else") {
-                    if let Some(&last) = conditional_stack.last() {
-                        if last {
-                            skip_until_endif = true;
-                        } else if skip_until_else {
-                            skip_until_endif = false;
-                            skip_until_else = false;
-                        }
-                    }
+                }
+                
+                if trimmed.starts_with("#ifndef") {
+                    let is_defined = preprocessor.evaluate_conditional(trimmed, true);
+                    conditional_stack.push(is_defined);
+                    skip_until_endif = !is_defined || skip_until_endif;
                     continue;
-                } else if trimmed.starts_with("#endif") {
-                    if !conditional_stack.is_empty() {
-                        conditional_stack.pop();
-                        
-                        // If we're out of all nested conditionals, stop skipping
-                        if conditional_stack.is_empty() || !conditional_stack.contains(&false) {
-                            skip_until_endif = false;
-                            skip_until_else = false;
-                        }
+                }
+                
+                if trimmed.starts_with("#else") {
+                    if let Some(last) = conditional_stack.last_mut() {
+                        *last = !*last;
+                        skip_until_endif = !*last || (conditional_stack.len() > 1 && !conditional_stack[conditional_stack.len() - 2]);
                     }
                     continue;
                 }
                 
-                // Skip processing if we're in a failed conditional
+                if trimmed.starts_with("#endif") {
+                    if !conditional_stack.is_empty() {
+                        conditional_stack.pop();
+                        skip_until_endif = conditional_stack.iter().any(|&x| !x);
+                    }
+                    continue;
+                }
+                
+                // Skip other directives if in a failed conditional
                 if skip_until_endif {
                     continue;
                 }
                 
                 // Process include directive
                 if trimmed.starts_with("#include") {
-                    match self.process_include(trimmed, current_dir) {
-                        Ok(included_content) => {
-                            result.push_str(&included_content);
-                            result.push('\n');
-                        }
-                        Err(e) => return Err(e),
+                    // Extract the included file path
+                    let start = trimmed.find('"').or_else(|| trimmed.find('<'));
+                    let end = trimmed.rfind('"').or_else(|| trimmed.rfind('>'));
+                    
+                    if start.is_none() || end.is_none() || start.unwrap() >= end.unwrap() {
+                        return Err(format!("Invalid include directive: {}", trimmed));
                     }
-                    continue;
+                    
+                    let start_idx = start.unwrap() + 1;
+                    let end_idx = end.unwrap();
+                    let include_path = &trimmed[start_idx..end_idx];
+                    
+                    // Check if this is a system include or a local include
+                    let is_system = trimmed.contains('<') && trimmed.contains('>');
+                    
+                    // Try to find the include file
+                    let mut include_file_path = None;
+                    
+                    // For local includes, first try relative to the current file
+                    if !is_system {
+                        let local_path = current_dir.join(include_path);
+                        if local_path.exists() {
+                            include_file_path = Some(local_path);
+                        }
+                    }
+                    
+                    // Try each include directory
+                    if include_file_path.is_none() {
+                        for dir in &preprocessor.include_dirs {
+                            let full_path = dir.join(include_path);
+                            if full_path.exists() {
+                                include_file_path = Some(full_path);
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Try the current directory as a fallback
+                    if include_file_path.is_none() {
+                        let current_dir_path = PathBuf::from(".").join(include_path);
+                        if current_dir_path.exists() {
+                            include_file_path = Some(current_dir_path);
+                        }
+                    }
+                    
+                    // Process the include file if found
+                    if let Some(path) = include_file_path {
+                        // Read the file content
+                        let include_content = fs::read_to_string(&path)
+                            .map_err(|_| format!("Cannot read include file: {}", path.display()))?;
+                            
+                        // Get the directory of the include file for resolving nested includes
+                        let parent_dir = path.parent().unwrap_or(Path::new("."));
+                        
+                        // Create a new preprocessor with the current defines
+                        let include_preprocessor = NativePreprocessor {
+                            include_dirs: preprocessor.include_dirs.clone(),
+                            defines: preprocessor.defines.clone(),
+                            keep_comments: preprocessor.keep_comments,
+                        };
+                        
+                        // Process the included content recursively
+                        let processed_include = include_preprocessor.preprocess_content(&include_content, parent_dir)?;
+                        
+                        // Add the processed include content to the result
+                        result.push_str(&processed_include);
+                        
+                        // Update our defines with any new defines from the included file
+                        if let Ok(include_defines) = include_preprocessor.extract_defines(&include_content) {
+                            for (name, value) in include_defines {
+                                preprocessor.defines.insert(name, value);
+                            }
+                        }
+                        
+                        continue;
+                    } else {
+                        return Err(format!("Include file not found: {}", include_path));
+                    }
                 }
                 
                 // Process define directive
@@ -266,13 +342,39 @@ impl NativePreprocessor {
             }
             
             // Process regular code line
-            // TODO: Implement macro expansion
-            
-            result.push_str(line);
+            // Expand macros in the line
+            let expanded_line = preprocessor.expand_macros(line);
+            result.push_str(&expanded_line);
             result.push('\n');
         }
         
         Ok(result)
+    }
+    
+    /// Extract defines from content without processing includes
+    fn extract_defines(&self, content: &str) -> Result<HashMap<String, String>, String> {
+        let mut defines = HashMap::new();
+        
+        for line in content.lines() {
+            let trimmed = line.trim();
+            
+            if trimmed.starts_with("#define") {
+                // Remove the #define part
+                let define_part = trimmed.trim_start_matches("#define").trim();
+                
+                // Split by first space to get name and value
+                if let Some(space_pos) = define_part.find(char::is_whitespace) {
+                    let name = define_part[..space_pos].trim().to_string();
+                    let value = define_part[space_pos..].trim().to_string();
+                    defines.insert(name, value);
+                } else {
+                    // Simple define without value
+                    defines.insert(define_part.to_string(), "1".to_string());
+                }
+            }
+        }
+        
+        Ok(defines)
     }
 }
 
@@ -322,21 +424,6 @@ impl Default for NativePreprocessor {
 mod tests {
     use super::*;
     use tempfile::tempdir;
-    
-    #[test]
-    fn test_process_include() {
-        let temp_dir = tempdir().unwrap();
-        let header_path = temp_dir.path().join("test.h");
-        
-        fs::write(&header_path, "int test_function(void);").unwrap();
-        
-        let preprocessor = NativePreprocessor::new().add_include_dir(temp_dir.path());
-        
-        let source = format!("#include \"{}\"", header_path.file_name().unwrap().to_string_lossy());
-        let result = preprocessor.process_include(&source, temp_dir.path()).unwrap();
-        
-        assert!(result.contains("int test_function(void);"));
-    }
     
     #[test]
     fn test_simple_define() {

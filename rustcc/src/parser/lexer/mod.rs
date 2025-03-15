@@ -26,6 +26,8 @@ pub struct Lexer {
     keywords: HashMap<String, TokenType>,
     // Flag to indicate if we're at the start of a line (for preprocessor directives)
     at_line_start: bool,
+    // Track included files
+    includes: Vec<String>,
 }
 
 impl Lexer {
@@ -46,6 +48,7 @@ impl Lexer {
             column: 1,
             keywords,
             at_line_start: true,
+            includes: Vec::new(),
         }
     }
 }

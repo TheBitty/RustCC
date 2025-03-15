@@ -1,5 +1,4 @@
 pub mod obfuscation;
-pub mod optimization;
 
 use crate::parser::ast::Program;
 

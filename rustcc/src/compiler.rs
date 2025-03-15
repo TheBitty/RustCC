@@ -7,7 +7,6 @@ use crate::preprocessor::{NativePreprocessor, Preprocessor};
 use crate::transforms::obfuscation::{
     ControlFlowObfuscator, DeadCodeInserter, StringEncryptor, VariableObfuscator,
 };
-use crate::transforms::optimization::{ConstantFolder, DeadCodeEliminator, FunctionInliner};
 use crate::transforms::Transform;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -25,6 +24,8 @@ pub struct Compiler {
     include_paths: Vec<PathBuf>,
     /// Macro definitions for the preprocessor
     defines: std::collections::HashMap<String, String>,
+    /// Whether to only preprocess the source file
+    preprocess_only: bool,
 }
 
 /// Optimization levels for the compiler
@@ -78,6 +79,7 @@ impl Compiler {
             verbose: false,
             include_paths: Vec::new(),
             defines: std::collections::HashMap::new(),
+            preprocess_only: false,
         }
     }
 
@@ -136,6 +138,12 @@ impl Compiler {
         Ok(self)
     }
 
+    /// Set whether to only preprocess the source file
+    pub fn preprocess_only(mut self, preprocess_only: bool) -> Self {
+        self.preprocess_only = preprocess_only;
+        self
+    }
+
     /// Compiles the source file to the output file
     pub fn compile(&self) -> Result<(), String> {
         if self.verbose {
@@ -183,6 +191,33 @@ impl Compiler {
         
         let preprocessed_path = preprocessor.preprocess_file(&source_path)?;
         
+        // If preprocess_only is true, just copy the preprocessed file to the output path and return
+        if self.preprocess_only {
+            if self.verbose {
+                println!("Preprocessing only, copying to output file...");
+            }
+            
+            // Read the preprocessed file
+            let preprocessed_content = fs::read_to_string(&preprocessed_path)
+                .map_err(|e| format!("Failed to read preprocessed file: {}", e))?;
+                
+            // Create output directory if it doesn't exist
+            if let Some(parent) = Path::new(&output_path).parent() {
+                fs::create_dir_all(parent)
+                    .map_err(|e| format!("Failed to create output directory: {}", e))?;
+            }
+            
+            // Write to the output file
+            fs::write(&output_path, preprocessed_content)
+                .map_err(|e| format!("Failed to write output file: {}", e))?;
+                
+            if self.verbose {
+                println!("Preprocessing completed successfully");
+            }
+            
+            return Ok(());
+        }
+        
         // Read the preprocessed file
         let mut source = fs::read_to_string(&preprocessed_path)
             .map_err(|e| format!("Failed to read preprocessed file: {}", e))?;
@@ -220,50 +255,6 @@ impl Compiler {
 
         if self.verbose {
             println!("Semantic analysis completed");
-        }
-
-        // Apply optimizations based on the optimization level
-        let opt_level = if let Some(config) = &self.config {
-            config.get_optimization_level()
-        } else {
-            self.optimization_level
-        };
-
-        match opt_level {
-            OptimizationLevel::None => {
-                if self.verbose {
-                    println!("No optimizations applied");
-                }
-            }
-            OptimizationLevel::Basic => {
-                if self.verbose {
-                    println!("Applying basic optimizations");
-                }
-                // Apply constant folding
-                let constant_folder = ConstantFolder;
-                constant_folder.apply(&mut ast)?;
-            }
-            OptimizationLevel::Full => {
-                if self.verbose {
-                    println!("Applying full optimizations");
-                }
-                // Apply constant folding
-                let constant_folder = ConstantFolder;
-                constant_folder.apply(&mut ast)?;
-
-                // Apply function inlining
-                let inline_threshold = if let Some(config) = &self.config {
-                    config.optimization.inline_threshold
-                } else {
-                    10 // Default threshold
-                };
-                let function_inliner = FunctionInliner::new(inline_threshold, false);
-                function_inliner.apply(&mut ast)?;
-
-                // Apply dead code elimination
-                let dead_code_eliminator = DeadCodeEliminator;
-                dead_code_eliminator.apply(&mut ast)?;
-            }
         }
 
         // Apply obfuscations based on the obfuscation level

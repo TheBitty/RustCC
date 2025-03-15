@@ -98,69 +98,79 @@ impl X86_64Generator {
             Type::LongLong | Type::UnsignedLongLong => 8,
             Type::Float => 4,
             Type::Double => 8,
-            Type::Pointer(_) => 8,
-            Type::Array(elem_type, Some(size)) => {
-                let elem_size = self.get_type_size(elem_type);
-                elem_size * size
-            },
-            Type::Array(elem_type, None) => self.get_type_size(elem_type),
+            Type::Pointer(_) => 8, // 64-bit pointers
+            Type::Array(elem_type, Some(size)) => elem_type.size() * size,
+            Type::Array(elem_type, None) => elem_type.size(), // VLA
             Type::Struct(name) => {
+                // Get the struct size from the registry
                 if let Some(fields) = self.structs.get(name) {
-                    if let Some((_, _, last_offset)) = fields.last() {
-                        // Total size is the last field's offset plus its size
-                        // For simplicity, we're not handling struct padding correctly here
-                        *last_offset + 8
-                    } else {
+                    if fields.is_empty() {
                         0
+                    } else {
+                        // Last field offset + last field size
+                        let (_, field_type, offset) = fields.last().unwrap();
+                        offset + self.get_type_size(field_type)
                     }
                 } else {
-                    0 // Unknown struct
-                }
-            }
-            Type::Union(name) => {
-                // Union size is the size of the largest member
-                if let Some(fields) = self.structs.get(name) {
-                    let mut max_size = 0;
-                    for (_, field_type, _) in fields {
-                        let size = self.get_type_size(field_type);
-                        if size > max_size {
-                            max_size = size;
-                        }
-                    }
-                    max_size
-                } else {
+                    // Unknown struct, assume size 0
                     0
                 }
-            }
+            },
+            Type::Union(name) => {
+                // For unions, size is the size of the largest field
+                if let Some(fields) = self.structs.get(name) {
+                    fields
+                        .iter()
+                        .map(|(_, field_type, _)| self.get_type_size(field_type))
+                        .max()
+                        .unwrap_or(0)
+                } else {
+                    // Unknown union, assume size 0
+                    0
+                }
+            },
+            Type::Function { .. } => 8, // Function pointers are 8 bytes
             Type::Const(inner) => self.get_type_size(inner),
             Type::Volatile(inner) => self.get_type_size(inner),
             Type::Restrict(inner) => self.get_type_size(inner),
-            Type::Function { .. } => 8, // Function pointers are 8 bytes
             Type::TypeDef(_) => 8, // Assume 8 bytes, should be resolved during semantic analysis
+            Type::Complex => 16,    // _Complex
+            Type::Imaginary => 8,   // _Imaginary
+            Type::Atomic(inner) => self.get_type_size(inner),   // _Atomic type - C11
+            Type::Generic { .. } => 8,   // Generic type
         }
     }
     
     fn get_type_alignment(&self, typ: &Type) -> usize {
         match typ {
             Type::Void => 1,
-            Type::Bool | Type::Char | Type::UnsignedChar => 1,
+            Type::Bool => 1,
+            Type::Char | Type::UnsignedChar => 1,
             Type::Short | Type::UnsignedShort => 2,
             Type::Int | Type::UnsignedInt => 4,
-            Type::Long | Type::UnsignedLong | Type::LongLong | Type::UnsignedLongLong => 8,
+            Type::Long | Type::UnsignedLong => 8,
+            Type::LongLong | Type::UnsignedLongLong => 8,
             Type::Float => 4,
             Type::Double => 8,
             Type::Pointer(_) => 8,
             Type::Array(elem_type, _) => self.get_type_alignment(elem_type),
-            Type::Struct(_) | Type::Union(_) => 8, // Could be improved with actual calculation
-            Type::Const(inner) | Type::Volatile(inner) | Type::Restrict(inner) => self.get_type_alignment(inner),
+            Type::Struct(_) => 8, // Simplified, should use field alignments
+            Type::Union(_) => 8,  // Simplified, should use field alignments
             Type::Function { .. } => 8,
+            Type::Const(inner) => self.get_type_alignment(inner),
+            Type::Volatile(inner) => self.get_type_alignment(inner),
+            Type::Restrict(inner) => self.get_type_alignment(inner),
             Type::TypeDef(_) => 8,
+            Type::Complex => 16,    // _Complex
+            Type::Imaginary => 8,   // _Imaginary
+            Type::Atomic(inner) => self.get_type_alignment(inner),   // _Atomic type - C11
+            Type::Generic { .. } => 8,   // Generic type
         }
     }
     
     fn process_global(&mut self, global: &Statement) {
         match global {
-            Statement::VariableDeclaration { name, data_type, initializer, is_global } => {
+            Statement::VariableDeclaration { name, data_type, initializer, is_global, alignment: _ } => {
                 if !is_global {
                     return;
                 }
@@ -353,12 +363,7 @@ impl X86_64Generator {
                 self.emit_line("    pop %rbp");
                 self.emit_line("    ret");
             }
-            Statement::VariableDeclaration {
-                name,
-                initializer,
-                data_type: _,
-                is_global: _,
-            } => {
+            Statement::VariableDeclaration { name, data_type, initializer, is_global, alignment: _ } => {
                 // Evaluate initializer
                 self.generate_expression(initializer);
 
@@ -435,7 +440,7 @@ impl X86_64Generator {
                 self.current_loop_start_label = prev_start;
                 self.current_loop_end_label = prev_end;
             }
-            Statement::For { initializer, condition, increment, body } => {
+            Statement::For { body, initializer, condition, increment } => {
                 let label_start = self.next_label("for_start");
                 let label_check = self.next_label("for_check");
                 let label_end = self.next_label("for_end");

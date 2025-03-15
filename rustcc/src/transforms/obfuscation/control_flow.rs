@@ -61,8 +61,12 @@ impl ControlFlowObfuscator {
                         let a = rng.gen_range(1000..10000);
                         Expression::BinaryOperation {
                             left: Box::new(Expression::BinaryOperation {
-                                left: Box::new(Expression::IntegerLiteral(value)),
-                                operator: BinaryOp::Add,
+                                left: Box::new(Expression::BinaryOperation {
+                                    left: Box::new(Expression::IntegerLiteral(value)),
+                                    operator: BinaryOp::Add,
+                                    right: Box::new(Expression::IntegerLiteral(a)),
+                                }),
+                                operator: BinaryOp::Subtract,
                                 right: Box::new(Expression::IntegerLiteral(a)),
                             }),
                             operator: BinaryOp::Subtract,
@@ -74,8 +78,12 @@ impl ControlFlowObfuscator {
                         let a = rng.gen_range(2..10);
                         Expression::BinaryOperation {
                             left: Box::new(Expression::BinaryOperation {
-                                left: Box::new(Expression::IntegerLiteral(value)),
-                                operator: BinaryOp::Multiply,
+                                left: Box::new(Expression::BinaryOperation {
+                                    left: Box::new(Expression::IntegerLiteral(value)),
+                                    operator: BinaryOp::Multiply,
+                                    right: Box::new(Expression::IntegerLiteral(a)),
+                                }),
+                                operator: BinaryOp::Divide,
                                 right: Box::new(Expression::IntegerLiteral(a)),
                             }),
                             operator: BinaryOp::Divide,
@@ -108,9 +116,13 @@ impl ControlFlowObfuscator {
                         Expression::BinaryOperation {
                             left: Box::new(Expression::BinaryOperation {
                                 left: Box::new(Expression::BinaryOperation {
-                                    left: Box::new(Expression::IntegerLiteral(value)),
-                                    operator: BinaryOp::BitwiseOr,
-                                    right: Box::new(Expression::IntegerLiteral(0)),
+                                    left: Box::new(Expression::BinaryOperation {
+                                        left: Box::new(Expression::IntegerLiteral(value)),
+                                        operator: BinaryOp::BitwiseOr,
+                                        right: Box::new(Expression::IntegerLiteral(0)),
+                                    }),
+                                    operator: BinaryOp::BitwiseAnd,
+                                    right: Box::new(Expression::IntegerLiteral(0x7FFFFFFF)),
                                 }),
                                 operator: BinaryOp::BitwiseAnd,
                                 right: Box::new(Expression::IntegerLiteral(0x7FFFFFFF)),
@@ -177,23 +189,27 @@ impl ControlFlowObfuscator {
             let opaque_predicate = Expression::BinaryOperation {
                 left: Box::new(Expression::BinaryOperation {
                     left: Box::new(Expression::BinaryOperation {
-                        left: Box::new(Expression::IntegerLiteral(random_int)),
-                        operator: BinaryOp::Multiply,
-                        right: Box::new(Expression::IntegerLiteral(random_int)),
+                        left: Box::new(Expression::BinaryOperation {
+                            left: Box::new(Expression::IntegerLiteral(random_int)),
+                            operator: BinaryOp::Multiply,
+                            right: Box::new(Expression::IntegerLiteral(random_int)),
+                        }),
+                        operator: BinaryOp::Add,
+                        right: Box::new(Expression::IntegerLiteral(1)),
                     }),
-                    operator: BinaryOp::Add,
-                    right: Box::new(Expression::IntegerLiteral(1)),
+                    operator: BinaryOp::Equal,
+                    right: Box::new(Expression::BinaryOperation {
+                        left: Box::new(Expression::BinaryOperation {
+                            left: Box::new(Expression::IntegerLiteral(0)),
+                            operator: BinaryOp::Multiply,
+                            right: Box::new(Expression::IntegerLiteral(2)),
+                        }),
+                        operator: BinaryOp::Add,
+                        right: Box::new(Expression::IntegerLiteral(0)),
+                    }),
                 }),
                 operator: BinaryOp::Equal,
-                right: Box::new(Expression::BinaryOperation {
-                    left: Box::new(Expression::BinaryOperation {
-                        left: Box::new(Expression::IntegerLiteral(0)),
-                        operator: BinaryOp::Multiply,
-                        right: Box::new(Expression::IntegerLiteral(2)),
-                    }),
-                    operator: BinaryOp::Add,
-                    right: Box::new(Expression::IntegerLiteral(0)),
-                }),
+                right: Box::new(Expression::IntegerLiteral(0)),
             };
 
             // Create junk code that will never execute
@@ -203,6 +219,7 @@ impl ControlFlowObfuscator {
                 data_type: Some(Type::Int),
                 initializer: Expression::IntegerLiteral(rng.gen_range(1..1000)),
                 is_global: false,
+                alignment: None,
             };
 
             let junk_block = Statement::Block(vec![junk_declaration]);

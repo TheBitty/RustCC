@@ -72,6 +72,7 @@ impl SemanticAnalyzer {
                 initializer,
                 data_type: _,
                 is_global: _,
+                alignment: _,
             } => {
                 // Check if variable is already defined
                 if self.variables.contains_key(name) {
@@ -91,6 +92,7 @@ impl SemanticAnalyzer {
                 size,
                 data_type: _,
                 is_global: _,
+                alignment: _,
             } => {
                 // Check if variable is already defined
                 if self.variables.contains_key(name) {
@@ -166,6 +168,12 @@ impl SemanticAnalyzer {
                 }
                 Ok(())
             }
+            // Add a catch-all for unhandled statement types (C11 features)
+            _ => {
+                // For now, we'll just continue without analyzing these statements
+                // They will be handled properly in a future implementation
+                Ok(())
+            }
         }
     }
 
@@ -219,6 +227,12 @@ impl SemanticAnalyzer {
             }
             Expression::StructFieldAccess { object, .. } => self.analyze_expression(object),
             Expression::PointerFieldAccess { pointer, .. } => self.analyze_expression(pointer),
+            // Add a catch-all for unhandled expression types (C11 features)
+            _ => {
+                // For now, we'll just return a placeholder result
+                // These will be handled properly in a future implementation
+                Ok(())
+            }
         }
     }
 }

@@ -71,10 +71,11 @@ impl DeadCodeInserter {
 
             // Create the variable declaration
             let decl = Statement::VariableDeclaration {
-                name: var_name.clone(),
+                name: format!("_unused_{}", rng.gen_range(1000..9999)),
                 data_type: Some(Type::Int),
-                initializer,
+                initializer: Expression::IntegerLiteral(rng.gen_range(-100..100)),
                 is_global: false,
+                alignment: None,
             };
 
             statements.push(decl);
@@ -243,24 +244,26 @@ impl DeadCodeInserter {
 
                     // Initialize counter
                     let init_stmt = Statement::VariableDeclaration {
-                        name: format!("_loop_counter_{}", rng.gen::<u32>()),
+                        name: var_name.clone(),
                         data_type: Some(Type::Int),
                         initializer: Expression::IntegerLiteral(0),
                         is_global: false,
+                        alignment: None,
                     };
 
                     statements.push(init_stmt);
 
                     // Create a loop with a small number of iterations
                     let iterations = rng.gen_range(1..5);
-                    let loop_var = format!("_loop_counter_{}", rng.gen::<u32>());
+                    let loop_var = format!("_iter_{}", rng.gen_range(1000..9999));
 
                     // Loop initialization
                     let init = Statement::VariableDeclaration {
-                        name: loop_var.clone(),
+                        name: format!("_iter_{}", rng.gen_range(1000..9999)),
                         data_type: Some(Type::Int),
                         initializer: Expression::IntegerLiteral(0),
                         is_global: false,
+                        alignment: None,
                     };
 
                     // Loop condition
@@ -307,7 +310,7 @@ impl DeadCodeInserter {
             }
             _ => {
                 // Create a new dummy variable with complex initialization
-                let var_name = format!("_complex_var_{}", rng.gen::<u32>());
+                let var_name = format!("_junk_{}", rng.gen_range(1000..9999));
                 let expr = self.create_complex_expression(rng);
 
                 let stmt = Statement::VariableDeclaration {
@@ -315,6 +318,7 @@ impl DeadCodeInserter {
                     data_type: Some(Type::Int),
                     initializer: expr,
                     is_global: false,
+                    alignment: None,
                 };
 
                 statements.push(stmt);

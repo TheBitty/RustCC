@@ -1,6 +1,6 @@
-use crate::parser::ast::{BinaryOp, Expression, OperatorType, UnaryOp};
-use crate::parser::error::{self, Result};
-use crate::parser::token::TokenType;
+use crate::parser::error::{self, Error, ErrorKind, Result};
+use crate::parser::ast::{BinaryOp, Expression, OperatorType, Type, UnaryOp, AtomicOp};
+use crate::parser::token::{Token, TokenType};
 use crate::parser::Parser;
 
 impl Parser {
@@ -619,10 +619,14 @@ impl Parser {
     /// Helper method to peek ahead by a specific number of tokens
     fn peek_ahead(&self, offset: usize) -> &Token {
         if self.current + offset >= self.tokens.len() {
-            // Return EOF token if we're past the end
             &self.tokens[self.tokens.len() - 1]
         } else {
             &self.tokens[self.current + offset]
         }
+    }
+
+    /// Look at the next token without consuming it
+    pub fn peek_next(&self) -> TokenType {
+        self.peek_ahead(1).token_type
     }
 } 
