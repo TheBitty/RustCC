@@ -160,6 +160,11 @@ pub enum TokenType {
     PPErrorDir,
     PPWarning,
     PPLine, // #line directive
+    
+    // C23 preprocessor directives
+    PPEmbed,    // #embed directive for embedding binary files
+    PPElifDef,  // #elifdef directive
+    PPElifNDef, // #elifndef directive
 
     // Special tokens
     Eof,

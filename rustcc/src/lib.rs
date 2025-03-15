@@ -10,7 +10,7 @@ pub mod transforms;
 pub use codegen::{Backend, CodeGenerator};
 pub use compiler::{Compiler, ObfuscationLevel, OptimizationLevel};
 pub use config::Config;
-pub use preprocessor::{GccPreprocessor, Preprocessor, PreprocessorConfig};
+pub use preprocessor::{NativePreprocessor, Preprocessor};
 pub use transforms::Transform;
 
 /// Compiles a C file to assembly with the given options

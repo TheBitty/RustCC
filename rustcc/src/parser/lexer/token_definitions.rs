@@ -84,6 +84,11 @@ pub fn init_keywords() -> HashMap<String, TokenType> {
     keywords.insert("error".to_string(), TokenType::PPErrorDir);
     keywords.insert("warning".to_string(), TokenType::PPWarning);
     keywords.insert("line".to_string(), TokenType::PPLine);
+    
+    // C23 preprocessor directives
+    keywords.insert("embed".to_string(), TokenType::PPEmbed);
+    keywords.insert("elifdef".to_string(), TokenType::PPElifDef);
+    keywords.insert("elifndef".to_string(), TokenType::PPElifNDef);
 
     keywords
 }

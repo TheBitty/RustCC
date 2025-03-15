@@ -223,9 +223,28 @@ impl X86_64Generator {
         self.emit_line("    push %rbp");
         self.emit_line("    mov %rsp, %rbp");
 
+        // First pass: analyze the function to determine stack space needed
+        let mut stack_size = 0;
+        
+        // Account for parameters
+        for (i, param) in function.parameters.iter().enumerate() {
+            if i < 6 {  // First 6 parameters are in registers
+                stack_size += 8;  // 8 bytes per parameter
+            }
+        }
+        
+        // Account for local variables by analyzing the function body
+        stack_size += self.calculate_stack_size(&function.body);
+        
+        // Align stack to 16 bytes (ABI requirement)
+        if stack_size % 16 != 0 {
+            stack_size = (stack_size / 16 + 1) * 16;
+        }
+        
         // Reserve stack space for parameters and local variables
-        // For simplicity, allocate a fixed amount initially
-        self.emit_line("    sub $256, %rsp");
+        if stack_size > 0 {
+            self.emit_line(&format!("    sub ${}, %rsp", stack_size));
+        }
         
         // Store parameter values in the stack
         for (i, param) in function.parameters.iter().enumerate() {
@@ -264,6 +283,65 @@ impl X86_64Generator {
             self.emit_line("    pop %rbp");
             self.emit_line("    ret");
         }
+    }
+
+    // Calculate the stack size needed for a list of statements
+    fn calculate_stack_size(&self, statements: &[Statement]) -> usize {
+        let mut size = 0;
+        
+        for stmt in statements {
+            match stmt {
+                Statement::VariableDeclaration { .. } => {
+                    // Each variable takes 8 bytes
+                    size += 8;
+                }
+                Statement::ArrayDeclaration { size: Some(expr), .. } => {
+                    // For array declarations with constant size
+                    if let Expression::IntegerLiteral(n) = expr {
+                        size += (*n as usize) * 8;  // 8 bytes per element
+                    } else {
+                        // For non-constant sizes, allocate a reasonable default
+                        size += 64;  // Default to 8 elements
+                    }
+                }
+                Statement::Block(block_stmts) => {
+                    // Recursively calculate size for nested blocks
+                    size += self.calculate_stack_size(block_stmts);
+                }
+                Statement::If { then_block, else_block, .. } => {
+                    // Calculate size for both branches and take the maximum
+                    let then_size = self.calculate_stack_size(&[*then_block.clone()]);
+                    let else_size = if let Some(else_stmt) = else_block {
+                        self.calculate_stack_size(&[*else_stmt.clone()])
+                    } else {
+                        0
+                    };
+                    size += then_size.max(else_size);
+                }
+                Statement::While { body, .. } | Statement::DoWhile { body, .. } => {
+                    size += self.calculate_stack_size(&[*body.clone()]);
+                }
+                Statement::For { body, initializer, .. } => {
+                    // Account for initializer if it's a variable declaration
+                    if let Some(init) = initializer {
+                        size += self.calculate_stack_size(&[*init.clone()]);
+                    }
+                    size += self.calculate_stack_size(&[*body.clone()]);
+                }
+                Statement::Switch { cases, .. } => {
+                    // Calculate size for all cases and take the maximum
+                    let mut max_case_size = 0;
+                    for case in cases {
+                        let case_size = self.calculate_stack_size(&case.statements);
+                        max_case_size = max_case_size.max(case_size);
+                    }
+                    size += max_case_size;
+                }
+                _ => {} // Other statement types don't allocate stack space
+            }
+        }
+        
+        size
     }
 
     fn generate_statement(&mut self, statement: &Statement) {

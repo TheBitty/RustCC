@@ -99,14 +99,6 @@ pub struct PreprocessorConfig {
     /// Whether to keep comments in preprocessor output
     #[serde(default = "default_false")]
     pub keep_comments: bool,
-    
-    /// Additional preprocessor flags
-    #[serde(default)]
-    pub additional_flags: Vec<String>,
-    
-    /// Path to GCC executable (if not in PATH)
-    #[serde(default)]
-    pub gcc_path: Option<String>,
 }
 
 impl Config {
@@ -194,8 +186,6 @@ impl Default for PreprocessorConfig {
             include_paths: Vec::new(),
             defines: HashMap::new(),
             keep_comments: default_false(),
-            additional_flags: Vec::new(),
-            gcc_path: None,
         }
     }
 }

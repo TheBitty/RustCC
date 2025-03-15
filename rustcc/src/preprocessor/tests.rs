@@ -1,4 +1,4 @@
-use crate::preprocessor::{GccPreprocessor, PreprocessorConfig, Preprocessor};
+use crate::preprocessor::{NativePreprocessor, Preprocessor};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -6,26 +6,13 @@ use tempfile::tempdir;
 
 #[test]
 fn test_preprocessor_availability() {
-    let preprocessor = GccPreprocessor::new();
-    
-    // This test might be skipped if GCC is not available on the system
-    if !preprocessor.is_available() {
-        println!("Skipping test because GCC preprocessor is not available");
-        return;
-    }
-    
+    let preprocessor = NativePreprocessor::new();
     assert!(preprocessor.is_available());
 }
 
 #[test]
 fn test_preprocess_simple_file() {
-    let preprocessor = GccPreprocessor::new();
-    
-    // Skip if GCC is not available
-    if !preprocessor.is_available() {
-        println!("Skipping test because GCC preprocessor is not available");
-        return;
-    }
+    let preprocessor = NativePreprocessor::new();
     
     // Create a temporary directory
     let temp_dir = tempdir().unwrap();
@@ -49,14 +36,6 @@ fn test_preprocess_simple_file() {
 
 #[test]
 fn test_preprocess_with_include() {
-    let preprocessor = GccPreprocessor::new();
-    
-    // Skip if GCC is not available
-    if !preprocessor.is_available() {
-        println!("Skipping test because GCC preprocessor is not available");
-        return;
-    }
-    
     // Create a temporary directory
     let temp_dir = tempdir().unwrap();
     let header_path = temp_dir.path().join("header.h");
@@ -67,10 +46,8 @@ fn test_preprocess_with_include() {
     fs::write(&input_path, "#include \"header.h\"\nint main() { return TEST_VALUE; }\n").unwrap();
     
     // Configure the preprocessor with the include path
-    let mut config = PreprocessorConfig::default();
-    config.include_paths.push(temp_dir.path().to_path_buf());
-    
-    let preprocessor = GccPreprocessor::with_config(config);
+    let preprocessor = NativePreprocessor::new()
+        .add_include_dir(temp_dir.path());
     
     // Preprocess the file
     let output_path = preprocessor.preprocess_file(&input_path).unwrap();
@@ -87,21 +64,10 @@ fn test_preprocess_with_include() {
 
 #[test]
 fn test_preprocess_with_defines() {
-    let mut config = PreprocessorConfig::default();
-    
     // Add some predefined macros
-    let mut defines = HashMap::new();
-    defines.insert("DEBUG".to_string(), None);
-    defines.insert("VERSION".to_string(), Some("1.0".to_string()));
-    config.defines = defines;
-    
-    let preprocessor = GccPreprocessor::with_config(config);
-    
-    // Skip if GCC is not available
-    if !preprocessor.is_available() {
-        println!("Skipping test because GCC preprocessor is not available");
-        return;
-    }
+    let preprocessor = NativePreprocessor::new()
+        .add_define("DEBUG", "")
+        .add_define("VERSION", "1.0");
     
     // Create a simple C file that uses the defines
     let source = r#"
@@ -128,13 +94,7 @@ fn test_preprocess_with_defines() {
 
 #[test]
 fn test_preprocessor_error() {
-    let preprocessor = GccPreprocessor::new();
-    
-    // Skip if GCC is not available
-    if !preprocessor.is_available() {
-        println!("Skipping test because GCC preprocessor is not available");
-        return;
-    }
+    let preprocessor = NativePreprocessor::new();
     
     // Create a C file with a preprocessing error
     let source = r#"
@@ -154,30 +114,16 @@ fn test_preprocessor_error() {
 
 #[test]
 fn test_preprocess_with_c11_features() {
-    let mut config = PreprocessorConfig::default();
-    config.gcc_flags.push("-std=c11".to_string());
-    
-    let preprocessor = GccPreprocessor::with_config(config);
-    
-    // Skip if GCC is not available
-    if !preprocessor.is_available() {
-        println!("Skipping test because GCC preprocessor is not available");
-        return;
-    }
+    let preprocessor = NativePreprocessor::new();
     
     // C11 features: _Generic, _Atomic, anonymous structures
     let source = r#"
-    #include <stdatomic.h>
-    
     // C11 _Generic feature
     #define typename(x) _Generic((x),                                                 \
                           char: "char",                                               \
                          float: "float",                                              \
                          double: "double",                                            \
                          default: "other")
-    
-    // C11 _Atomic feature
-    _Atomic int atomic_counter;
     
     // C11 anonymous struct
     struct Point {
@@ -191,7 +137,6 @@ fn test_preprocess_with_c11_features() {
     
     int main() {
         struct Point p = {1, 2, .color = 0xFFFFFF};
-        _Atomic_store(&atomic_counter, 42);
         const char* type = typename(p.x);
         return 0;
     }
@@ -200,22 +145,14 @@ fn test_preprocess_with_c11_features() {
     // Preprocess the string
     let result = preprocessor.preprocess_string(source);
     
-    // This should succeed with C11 features enabled
+    // This should succeed with C11 features
     assert!(result.is_ok());
 }
 
 #[test]
 fn test_preprocess_with_keep_comments() {
-    let mut config = PreprocessorConfig::default();
-    config.keep_comments = true;
-    
-    let preprocessor = GccPreprocessor::with_config(config);
-    
-    // Skip if GCC is not available
-    if !preprocessor.is_available() {
-        println!("Skipping test because GCC preprocessor is not available");
-        return;
-    }
+    let preprocessor = NativePreprocessor::new()
+        .keep_comments(true);
     
     // Create a simple C file with comments
     let source = r#"

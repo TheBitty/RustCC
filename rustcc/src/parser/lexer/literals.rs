@@ -38,7 +38,7 @@ impl Lexer {
 
     /// Handles character literals
     pub(crate) fn handle_char_literal(&mut self) {
-        // Check for prefixed char literals: L'x', u'x'
+        // Check for prefixed char literals: L'x', u'x', U'x'
         if self.current > 1 {
             let prev_char = self.source.chars().nth(self.current - 2).unwrap_or('\0');
             if prev_char == 'L' {
@@ -47,252 +47,328 @@ impl Lexer {
             } else if prev_char == 'u' {
                 self.char_literal_with_type(TokenType::UCharLiteral);
                 return;
+            } else if prev_char == 'U' {
+                // Handle U'x' - C11 Unicode character literal
+                self.char_literal_with_type(TokenType::U16StringLiteral);
+                return;
             }
         }
-        // Regular char literal
+        // Regular character
         self.char_literal();
     }
 
-    /// Handles a standard string literal
+    /// Process a standard string literal
     pub(crate) fn string(&mut self) {
-        // Read until closing quote or end of file
-        while !self.is_at_end() && self.peek() != '"' {
+        // Process characters until we reach the closing quote or end of file
+        while self.peek() != '"' && !self.is_at_end() {
             if self.peek() == '\n' {
                 self.line += 1;
                 self.column = 1;
-                self.at_line_start = true;
             }
-
-            // Handle escape sequences
-            if self.peek() == '\\' && !self.is_at_end() {
-                self.advance(); // Consume the backslash
-
-                // Handle common escape sequences
-                match self.peek() {
-                    'n' | 'r' | 't' | '\\' | '"' | '\'' => {
-                        self.advance();
-                    }
-                    'x' => {
-                        // Hex escape sequence \xHH
-                        self.advance(); // Consume 'x'
-                                        // Read up to 2 hex digits
-                        for _ in 0..2 {
-                            if is_hex_digit(self.peek()) {
-                                self.advance();
-                            } else {
-                                break;
-                            }
-                        }
-                    }
-                    '0'..='7' => {
-                        // Octal escape sequence \OOO
-                        // Read up to 3 octal digits
-                        for _ in 0..3 {
-                            if is_octal_digit(self.peek()) {
-                                self.advance();
-                            } else {
-                                break;
-                            }
-                        }
-                    }
-                    _ => {
-                        // Invalid escape sequence, but we'll just consume it
-                        self.advance();
-                    }
-                }
-            } else {
-                self.advance();
-            }
+            self.advance();
         }
 
+        // Unterminated string
         if self.is_at_end() {
-            // Unterminated string
+            // Report error: Unterminated string
             self.add_token(TokenType::Error);
             return;
         }
 
-        // Consume the closing quote
+        // Consume the closing "
         self.advance();
 
         // Extract the string value (without the quotes)
         let value = self.source[self.start + 1..self.current - 1].to_string();
-        self.add_token_with_literal(TokenType::StringLiteral, value);
+        
+        // Process escape sequences
+        let processed_value = self.process_escape_sequences(value);
+        
+        // Add the token with the processed value
+        self.add_token_with_literal(TokenType::StringLiteral, processed_value);
     }
 
-    /// Handles a standard character literal
+    /// Process a character literal
     pub(crate) fn char_literal(&mut self) {
-        // Read until closing quote or end of file
-        while !self.is_at_end() && self.peek() != '\'' {
+        // Process characters until we reach the closing quote or end of file
+        while self.peek() != '\'' && !self.is_at_end() {
             if self.peek() == '\n' {
                 self.line += 1;
                 self.column = 1;
-                self.at_line_start = true;
             }
-
-            // Handle escape sequences
-            if self.peek() == '\\' && !self.is_at_end() {
-                self.advance(); // Consume the backslash
-                self.advance(); // Consume the escaped character
-            } else {
-                self.advance();
-            }
+            self.advance();
         }
 
+        // Unterminated character literal
         if self.is_at_end() {
-            // Unterminated character literal
+            // Report error: Unterminated character literal
             self.add_token(TokenType::Error);
             return;
         }
 
-        // Consume the closing quote
+        // Consume the closing '
         self.advance();
 
         // Extract the character value (without the quotes)
         let value = self.source[self.start + 1..self.current - 1].to_string();
-        self.add_token_with_literal(TokenType::CharLiteral, value);
+        
+        // Process escape sequences
+        let processed_value = self.process_escape_sequences(value);
+        
+        // Validate character literal length
+        if processed_value.chars().count() != 1 && !processed_value.is_empty() {
+            // Multi-character literals are allowed in C but implementation-defined
+            // We'll accept them but might want to warn
+        }
+        
+        self.add_token_with_literal(TokenType::CharLiteral, processed_value);
     }
 
-    /// Handles a string literal with a specific type (prefixed string literal)
+    /// Process a string literal with a specific type (L, u, U, u8)
     pub(crate) fn string_with_type(&mut self, token_type: TokenType) {
-        // This method handles prefixed string literals like L"string", u"string", etc.
-        // The prefix and opening quote have already been consumed
+        // Adjust start to include the prefix
+        let prefix_len = match token_type {
+            TokenType::U8StringLiteral => 3, // u8"
+            _ => 2,                          // L", u", U"
+        };
+        
+        let original_start = self.start;
+        self.start = self.start - prefix_len + 1; // +1 to account for the opening quote
 
-        // Read until closing quote or end of file
-        while !self.is_at_end() && self.peek() != '"' {
+        // Process characters until we reach the closing quote or end of file
+        while self.peek() != '"' && !self.is_at_end() {
             if self.peek() == '\n' {
                 self.line += 1;
                 self.column = 1;
-                self.at_line_start = true;
             }
+            self.advance();
+        }
 
-            // Handle escape sequences
-            if self.peek() == '\\' && !self.is_at_end() {
-                self.advance(); // Consume the backslash
+        // Unterminated string
+        if self.is_at_end() {
+            // Report error: Unterminated string
+            self.add_token(TokenType::Error);
+            self.start = original_start; // Restore original start position
+            return;
+        }
 
-                // Handle common escape sequences
-                match self.peek() {
-                    'n' | 'r' | 't' | '\\' | '"' | '\'' => {
-                        self.advance();
-                    }
-                    'x' => {
-                        // Hex escape sequence \xHH
-                        self.advance(); // Consume 'x'
-                                        // Read up to 2 hex digits
+        // Consume the closing "
+        self.advance();
+
+        // Extract the string value (without the quotes and prefix)
+        let value = self.source[self.start + prefix_len..self.current - 1].to_string();
+        
+        // Process escape sequences
+        let processed_value = self.process_escape_sequences(value);
+        
+        // Add the token with the processed value
+        self.add_token_with_literal(token_type, processed_value);
+        
+        // Restore original start position
+        self.start = original_start;
+    }
+
+    /// Process a character literal with a specific type (L, u, U)
+    pub(crate) fn char_literal_with_type(&mut self, token_type: TokenType) {
+        // Adjust start to include the prefix
+        let original_start = self.start;
+        self.start = self.start - 1; // Adjust for the prefix (L, u, U)
+
+        // Process characters until we reach the closing quote or end of file
+        while self.peek() != '\'' && !self.is_at_end() {
+            if self.peek() == '\n' {
+                self.line += 1;
+                self.column = 1;
+            }
+            self.advance();
+        }
+
+        // Unterminated character literal
+        if self.is_at_end() {
+            // Report error: Unterminated character literal
+            self.add_token(TokenType::Error);
+            self.start = original_start; // Restore original start position
+            return;
+        }
+
+        // Consume the closing '
+        self.advance();
+
+        // Extract the character value (without the quotes and prefix)
+        let value = self.source[self.start + 2..self.current - 1].to_string();
+        
+        // Process escape sequences
+        let processed_value = self.process_escape_sequences(value);
+        
+        // Add the token with the processed value
+        self.add_token_with_literal(token_type, processed_value);
+        
+        // Restore original start position
+        self.start = original_start;
+    }
+
+    /// Process escape sequences in string and character literals
+    /// Handles all standard C escape sequences including hex, octal, and Unicode
+    fn process_escape_sequences(&self, value: String) -> String {
+        let mut result = String::new();
+        let mut chars = value.chars().peekable();
+        
+        while let Some(c) = chars.next() {
+            if c == '\\' {
+                // Handle escape sequence
+                match chars.next() {
+                    Some('a') => result.push('\x07'), // Bell (alert)
+                    Some('b') => result.push('\x08'), // Backspace
+                    Some('f') => result.push('\x0C'), // Form feed
+                    Some('n') => result.push('\n'),   // Line feed
+                    Some('r') => result.push('\r'),   // Carriage return
+                    Some('t') => result.push('\t'),   // Horizontal tab
+                    Some('v') => result.push('\x0B'), // Vertical tab
+                    Some('\\') => result.push('\\'),  // Backslash
+                    Some('\'') => result.push('\''),  // Single quote
+                    Some('"') => result.push('"'),    // Double quote
+                    Some('?') => result.push('?'),    // Question mark
+                    
+                    // Octal escape sequence \ooo
+                    Some(c) if is_octal_digit(c) => {
+                        let mut octal = String::new();
+                        octal.push(c);
+                        
+                        // Read up to 2 more octal digits
                         for _ in 0..2 {
-                            if is_hex_digit(self.peek()) {
-                                self.advance();
-                            } else {
-                                break;
-                            }
-                        }
-                    }
-                    'u' => {
-                        // Unicode escape sequence \u{HHHHHH}
-                        self.advance(); // Consume 'u'
-                        if self.peek() == '{' {
-                            self.advance(); // Consume '{'
-                                            // Read up to 6 hex digits
-                            let mut count = 0;
-                            while is_hex_digit(self.peek()) && count < 6 {
-                                self.advance();
-                                count += 1;
-                            }
-                            // Consume closing '}'
-                            if self.peek() == '}' {
-                                self.advance();
-                            }
-                        } else {
-                            // 4-digit form \uHHHH
-                            for _ in 0..4 {
-                                if is_hex_digit(self.peek()) {
-                                    self.advance();
+                            if let Some(&next) = chars.peek() {
+                                if is_octal_digit(next) {
+                                    octal.push(next);
+                                    chars.next();
                                 } else {
                                     break;
                                 }
                             }
                         }
+                        
+                        // Convert octal to character
+                        if let Ok(val) = u32::from_str_radix(&octal, 8) {
+                            if let Some(c) = std::char::from_u32(val) {
+                                result.push(c);
+                            } else {
+                                // Invalid Unicode code point
+                                result.push('\u{FFFD}'); // Unicode replacement character
+                            }
+                        }
                     }
-                    'U' => {
-                        // 8-digit Unicode escape \UHHHHHHHH
-                        self.advance(); // Consume 'U'
-                                        // Read 8 hex digits
+                    
+                    // Hexadecimal escape sequence \xhh
+                    Some('x') => {
+                        let mut hex = String::new();
+                        
+                        // Read hex digits
+                        while let Some(&next) = chars.peek() {
+                            if is_hex_digit(next) {
+                                hex.push(next);
+                                chars.next();
+                            } else {
+                                break;
+                            }
+                        }
+                        
+                        if !hex.is_empty() {
+                            // Convert hex to character
+                            if let Ok(val) = u32::from_str_radix(&hex, 16) {
+                                if let Some(c) = std::char::from_u32(val) {
+                                    result.push(c);
+                                } else {
+                                    // Invalid Unicode code point
+                                    result.push('\u{FFFD}'); // Unicode replacement character
+                                }
+                            }
+                        } else {
+                            // Invalid hex escape sequence
+                            result.push('x');
+                        }
+                    }
+                    
+                    // Unicode escape sequences \uhhhh and \Uhhhhhhhh (C11)
+                    Some('u') => {
+                        // \uhhhh - 4 hex digits for 16-bit Unicode code point
+                        let mut hex = String::new();
+                        
+                        // Read exactly 4 hex digits
+                        for _ in 0..4 {
+                            if let Some(&next) = chars.peek() {
+                                if is_hex_digit(next) {
+                                    hex.push(next);
+                                    chars.next();
+                                } else {
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        if hex.len() == 4 {
+                            // Convert hex to character
+                            if let Ok(val) = u32::from_str_radix(&hex, 16) {
+                                if let Some(c) = std::char::from_u32(val) {
+                                    result.push(c);
+                                } else {
+                                    // Invalid Unicode code point
+                                    result.push('\u{FFFD}'); // Unicode replacement character
+                                }
+                            }
+                        } else {
+                            // Invalid Unicode escape sequence
+                            result.push('u');
+                            for c in hex.chars() {
+                                result.push(c);
+                            }
+                        }
+                    }
+                    
+                    Some('U') => {
+                        // \Uhhhhhhhh - 8 hex digits for 32-bit Unicode code point
+                        let mut hex = String::new();
+                        
+                        // Read exactly 8 hex digits
                         for _ in 0..8 {
-                            if is_hex_digit(self.peek()) {
-                                self.advance();
-                            } else {
-                                break;
+                            if let Some(&next) = chars.peek() {
+                                if is_hex_digit(next) {
+                                    hex.push(next);
+                                    chars.next();
+                                } else {
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        if hex.len() == 8 {
+                            // Convert hex to character
+                            if let Ok(val) = u32::from_str_radix(&hex, 16) {
+                                if let Some(c) = std::char::from_u32(val) {
+                                    result.push(c);
+                                } else {
+                                    // Invalid Unicode code point
+                                    result.push('\u{FFFD}'); // Unicode replacement character
+                                }
+                            }
+                        } else {
+                            // Invalid Unicode escape sequence
+                            result.push('U');
+                            for c in hex.chars() {
+                                result.push(c);
                             }
                         }
                     }
-                    '0'..='7' => {
-                        // Octal escape sequence \OOO
-                        // Read up to 3 octal digits
-                        for _ in 0..3 {
-                            if is_octal_digit(self.peek()) {
-                                self.advance();
-                            } else {
-                                break;
-                            }
-                        }
-                    }
-                    _ => {
-                        // Invalid escape sequence, but we'll just consume it
-                        self.advance();
-                    }
+                    
+                    // Unknown escape sequence - C standard says to just output the character
+                    Some(c) => result.push(c),
+                    None => result.push('\\'), // Trailing backslash
                 }
             } else {
-                self.advance();
+                // Regular character
+                result.push(c);
             }
         }
-
-        if self.is_at_end() {
-            // Unterminated string
-            self.add_token(TokenType::Error);
-            return;
-        }
-
-        // Consume the closing quote
-        self.advance();
-
-        // Extract the string value (without the quotes)
-        let value = self.source[self.start + 1..self.current - 1].to_string();
-        self.add_token_with_literal(token_type, value);
-    }
-
-    /// Handles a character literal with a specific type (prefixed character literal)
-    pub(crate) fn char_literal_with_type(&mut self, token_type: TokenType) {
-        // This method handles prefixed char literals like L'x', u'x', etc.
-        // The prefix and opening quote have already been consumed
-
-        // Read until closing quote or end of file
-        while !self.is_at_end() && self.peek() != '\'' {
-            if self.peek() == '\n' {
-                self.line += 1;
-                self.column = 1;
-                self.at_line_start = true;
-            }
-
-            // Handle escape sequences
-            if self.peek() == '\\' && !self.is_at_end() {
-                self.advance(); // Consume the backslash
-                self.advance(); // Consume the escaped character
-            } else {
-                self.advance();
-            }
-        }
-
-        if self.is_at_end() {
-            // Unterminated character literal
-            self.add_token(TokenType::Error);
-            return;
-        }
-
-        // Consume the closing quote
-        self.advance();
-
-        // Extract the character value (without the quotes)
-        let value = self.source[self.start + 1..self.current - 1].to_string();
-        self.add_token_with_literal(token_type, value);
+        
+        result
     }
 
     /// Handles numeric literals (integer or floating-point)

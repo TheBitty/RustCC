@@ -1,4 +1,4 @@
-use crate::parser::error::{Error, Result};
+use crate::parser::error::Result;
 use crate::parser::token::{Token, TokenType};
 use crate::parser::Parser;
 
@@ -76,11 +76,12 @@ impl Parser {
         &self.tokens[self.current - 1]
     }
 
+    // Consume a token of the expected type or throw an error
     pub fn consume(&mut self, token_type: TokenType, message: &str) -> Result<&Token> {
         if self.check(token_type) {
             Ok(self.advance())
         } else {
-            Err(Error::unexpected_token(message, self.peek()))
+            Err(self.unexpected_token_error(message))
         }
     }
 

@@ -3,7 +3,7 @@ use crate::codegen::CodeGenerator;
 use crate::config::Config;
 use crate::parser::lexer::Lexer;
 use crate::parser::Parser;
-use crate::preprocessor::{GccPreprocessor, Preprocessor, PreprocessorConfig};
+use crate::preprocessor::{NativePreprocessor, Preprocessor};
 use crate::transforms::obfuscation::{
     ControlFlowObfuscator, DeadCodeInserter, StringEncryptor, VariableObfuscator,
 };
@@ -21,8 +21,10 @@ pub struct Compiler {
     language_dialect: LanguageDialect,
     config: Option<Config>,
     verbose: bool,
-    /// Configuration for the preprocessor
-    preprocessor_config: Option<PreprocessorConfig>,
+    /// Include paths for the preprocessor
+    include_paths: Vec<PathBuf>,
+    /// Macro definitions for the preprocessor
+    defines: std::collections::HashMap<String, String>,
 }
 
 /// Optimization levels for the compiler
@@ -74,7 +76,8 @@ impl Compiler {
             language_dialect: LanguageDialect::C11,
             config: None,
             verbose: false,
-            preprocessor_config: None,
+            include_paths: Vec::new(),
+            defines: std::collections::HashMap::new(),
         }
     }
 
@@ -104,10 +107,17 @@ impl Compiler {
         self
     }
 
-    /// Set the preprocessor configuration
+    /// Add an include path for the preprocessor
     #[allow(dead_code)]
-    pub fn with_preprocessor_config(mut self, config: PreprocessorConfig) -> Self {
-        self.preprocessor_config = Some(config);
+    pub fn add_include_path<P: AsRef<Path>>(mut self, path: P) -> Self {
+        self.include_paths.push(path.as_ref().to_path_buf());
+        self
+    }
+
+    /// Add a macro definition for the preprocessor
+    #[allow(dead_code)]
+    pub fn add_define(mut self, name: &str, value: &str) -> Self {
+        self.defines.insert(name.to_string(), value.to_string());
         self
     }
 
@@ -126,76 +136,54 @@ impl Compiler {
         Ok(self)
     }
 
-    /// Create a preprocessor configuration based on compiler settings
-    fn create_preprocessor_config(&self) -> PreprocessorConfig {
-        let mut config = match &self.preprocessor_config {
-            Some(config) => config.clone(),
-            None => PreprocessorConfig::default(),
-        };
-        
-        // If we have a compiler config, extract preprocessor settings
-        if let Some(compiler_config) = &self.config {
-            // Add include paths from compiler config if they exist
-            for path in &compiler_config.preprocessor.include_paths {
-                config.include_paths.push(PathBuf::from(path));
-            }
-            
-            // Add defines from compiler config
-            for (name, value) in &compiler_config.preprocessor.defines {
-                config.defines.insert(name.clone(), value.clone());
-            }
-            
-            // Additional flags
-            for flag in &compiler_config.preprocessor.additional_flags {
-                config.gcc_flags.push(flag.clone());
-            }
-            
-            // Keep comments setting
-            config.keep_comments = compiler_config.preprocessor.keep_comments;
-            
-            // GCC path
-            if let Some(path) = &compiler_config.preprocessor.gcc_path {
-                config.gcc_path = Some(PathBuf::from(path));
-            }
-        }
-        
-        // Set dialect-specific flags
-        match self.language_dialect {
-            LanguageDialect::C89 => config.gcc_flags.push("-std=c89".to_string()),
-            LanguageDialect::C99 => config.gcc_flags.push("-std=c99".to_string()),
-            LanguageDialect::C11 => config.gcc_flags.push("-std=c11".to_string()),
-            LanguageDialect::C17 => config.gcc_flags.push("-std=c17".to_string()),
-            LanguageDialect::CPlusPlus => config.gcc_flags.push("-std=c++11".to_string()),
-        }
-        
-        config
-    }
-
     /// Compiles the source file to the output file
     pub fn compile(&self) -> Result<(), String> {
         if self.verbose {
             println!("Compiling {} to {}", self.source_file, self.output_file);
         }
         
-        // Create preprocessor
-        let preprocessor_config = self.create_preprocessor_config();
-        let preprocessor = GccPreprocessor::with_config(preprocessor_config);
+        // Sanitize and validate file paths
+        let source_path = self.sanitize_path(&self.source_file)?;
+        let output_path = self.sanitize_path(&self.output_file)?;
         
-        // Check if GCC is available
-        if !preprocessor.is_available() {
-            return Err("GCC preprocessor is not available. Please install GCC or specify a valid path.".to_string());
+        // Create preprocessor
+        let mut preprocessor = NativePreprocessor::new();
+        
+        // Add include paths
+        for path in &self.include_paths {
+            preprocessor = preprocessor.add_include_dir(path);
+        }
+        
+        // Add defines from compiler config
+        if let Some(config) = &self.config {
+            for (name, value) in &config.preprocessor.defines {
+                if let Some(val) = value {
+                    preprocessor = preprocessor.add_define(name, val);
+                }
+            }
+            
+            // Add include paths from compiler config
+            for path in &config.preprocessor.include_paths {
+                preprocessor = preprocessor.add_include_dir(path);
+            }
+            
+            // Set keep comments option
+            preprocessor = preprocessor.keep_comments(config.preprocessor.keep_comments);
+        }
+        
+        // Add defines from compiler instance
+        for (name, value) in &self.defines {
+            preprocessor = preprocessor.add_define(name, value);
         }
         
         // Preprocess the source file
-        let source_path = Path::new(&self.source_file);
-        
         if self.verbose {
             println!("Preprocessing source file...");
         }
         
-        let preprocessed_path = preprocessor.preprocess_file(source_path)?;
+        let preprocessed_path = preprocessor.preprocess_file(&source_path)?;
         
-        // Read the preprocessed file (GCC -P flag removes line markers)
+        // Read the preprocessed file
         let mut source = fs::read_to_string(&preprocessed_path)
             .map_err(|e| format!("Failed to read preprocessed file: {}", e))?;
         // Ensure the source ends with a newline
@@ -217,7 +205,10 @@ impl Compiler {
 
         // Parsing
         let mut parser = Parser::new(tokens.clone());
-        let mut ast = parser.parse()?;
+        let mut ast = match parser.parse() {
+            Ok(ast) => ast,
+            Err(err) => return Err(format!("Parsing error: {}", err)),
+        };
 
         if self.verbose {
             println!("Parsing completed");
@@ -335,8 +326,14 @@ impl Compiler {
         let mut generator = CodeGenerator::new();
         let output = generator.generate(&ast);
 
+        // Create parent directories if they don't exist
+        if let Some(parent) = Path::new(&output_path).parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create output directory: {}", e))?;
+        }
+
         // Write the output to the file
-        fs::write(&self.output_file, output)
+        fs::write(&output_path, output)
             .map_err(|e| format!("Failed to write output file: {}", e))?;
 
         if self.verbose {
@@ -344,6 +341,50 @@ impl Compiler {
         }
 
         Ok(())
+    }
+
+    /// Sanitize and validate a file path
+    fn sanitize_path(&self, path: &str) -> Result<PathBuf, String> {
+        // Convert to PathBuf to handle platform-specific path separators
+        let path_buf = PathBuf::from(path);
+        
+        // Check if the path contains invalid characters
+        #[cfg(windows)]
+        {
+            // Windows has more restricted path characters
+            let invalid_chars = ['<', '>', ':', '"', '|', '?', '*'];
+            let path_str = path_buf.to_string_lossy();
+            
+            for c in invalid_chars {
+                if path_str.contains(c) {
+                    return Err(format!("Path contains invalid character '{}': {}", c, path));
+                }
+            }
+        }
+        
+        // For source files, check if they exist
+        if path == &self.source_file && !path_buf.exists() {
+            return Err(format!("Source file does not exist: {}", path));
+        }
+        
+        // For output files, check if the parent directory exists or can be created
+        if path == &self.output_file {
+            if let Some(parent) = path_buf.parent() {
+                if !parent.exists() {
+                    // We'll create the directory later, just check if it's possible
+                    if parent.to_string_lossy().len() > 255 {
+                        return Err(format!("Output directory path is too long: {}", parent.display()));
+                    }
+                }
+            }
+        }
+        
+        // Check for path length limits
+        if path_buf.to_string_lossy().len() > 255 {
+            return Err(format!("Path is too long: {}", path));
+        }
+        
+        Ok(path_buf)
     }
 }
 

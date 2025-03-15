@@ -55,6 +55,7 @@ pub enum Expression {
     IntegerLiteral(i32),
     StringLiteral(String),
     CharLiteral(char),
+    FloatLiteral(f64),  // Add support for floating-point literals
     BinaryOperation {
         left: Box<Expression>,
         operator: BinaryOp,
@@ -83,6 +84,8 @@ pub enum Expression {
         expr: Box<Expression>,
     },
     SizeOf(Box<Expression>),
+    SizeOfType(Type),  // sizeof(type)
+    AlignOf(Type),     // _Alignof(type) - C11
     ArrayAccess {
         array: Box<Expression>,
         index: Box<Expression>,
@@ -96,6 +99,23 @@ pub enum Expression {
         pointer: Box<Expression>,
         field: String,
     },
+    CompoundLiteral {  // (Type){initializers} - C99
+        type_name: Type,
+        initializers: Vec<Expression>,
+    },
+    GenericSelection {  // _Generic(expr, type1: expr1, type2: expr2, ...) - C11
+        controlling_expr: Box<Expression>,
+        associations: Vec<(Type, Expression)>,
+        default_expr: Option<Box<Expression>>,
+    },
+    StaticAssert {  // _Static_assert(expr, message) - C11
+        condition: Box<Expression>,
+        message: String,
+    },
+    AtomicExpr {  // Atomic expressions - C11
+        operation: AtomicOp,
+        operands: Vec<Expression>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -107,13 +127,15 @@ pub enum Statement {
         data_type: Option<Type>,
         initializer: Expression,
         is_global: bool,
+        alignment: Option<usize>,  // _Alignas specifier - C11
     },
     ArrayDeclaration {
         name: String,
         data_type: Option<Type>,
-        size: Option<Expression>,
+        size: Option<Expression>,  // None for VLAs determined at runtime
         initializer: Expression,
         is_global: bool,
+        alignment: Option<usize>,  // _Alignas specifier - C11
     },
     #[allow(clippy::enum_variant_names)]
     ExpressionStatement(Expression),
@@ -142,6 +164,19 @@ pub enum Statement {
     Switch {
         expression: Expression,
         cases: Vec<SwitchCase>,
+    },
+    Goto(String),  // Goto statement
+    Label(String, Box<Statement>),  // Label statement
+    StaticAssert {  // _Static_assert declaration - C11
+        condition: Expression,
+        message: String,
+    },
+    AtomicBlock(Vec<Statement>),  // Atomic compound statement - C11
+    ThreadLocal {  // _Thread_local declaration - C11
+        declaration: Box<Statement>,
+    },
+    NoReturn {  // _Noreturn function - C11
+        declaration: Box<Statement>,
     },
 }
 
@@ -187,6 +222,16 @@ pub enum Type {
     },
     // TypeDef name (to be resolved during semantic analysis)
     TypeDef(String),
+    // C99/C11 specific types
+    Complex,    // _Complex
+    Imaginary,  // _Imaginary
+    Atomic(Box<Type>),  // _Atomic type - C11
+    // C11 Generic selections
+    Generic {
+        controlling_type: Box<Type>,
+        associations: Vec<(Type, Type)>,
+        default_type: Option<Box<Type>>,
+    },
 }
 
 impl Type {
@@ -212,6 +257,10 @@ impl Type {
             Type::Restrict(inner) => inner.size(),
             Type::Function { .. } => 8, // Function pointers are 8 bytes
             Type::TypeDef(_) => 0, // Need to resolve
+            Type::Complex => 8, // _Complex type size
+            Type::Imaginary => 8, // _Imaginary type size
+            Type::Atomic(_) => 8, // _Atomic type size
+            Type::Generic { .. } => 8, // Generic type size
         }
     }
 
@@ -225,18 +274,93 @@ impl Type {
             // Same types are compatible
             (s, o) if std::mem::discriminant(s) == std::mem::discriminant(o) => true,
             
-            // Integer types are compatible with each other
+            // Integer types are compatible with each other (with potential truncation/sign extension)
+            (Type::Int, Type::Short) | (Type::Short, Type::Int) => true,
             (Type::Int, Type::Long) | (Type::Long, Type::Int) => true,
+            (Type::Int, Type::LongLong) | (Type::LongLong, Type::Int) => true,
+            (Type::Short, Type::Long) | (Type::Long, Type::Short) => true,
+            (Type::Short, Type::LongLong) | (Type::LongLong, Type::Short) => true,
+            (Type::Long, Type::LongLong) | (Type::LongLong, Type::Long) => true,
+            
+            // Unsigned integer types are compatible with each other
+            (Type::UnsignedInt, Type::UnsignedShort) | (Type::UnsignedShort, Type::UnsignedInt) => true,
             (Type::UnsignedInt, Type::UnsignedLong) | (Type::UnsignedLong, Type::UnsignedInt) => true,
+            (Type::UnsignedInt, Type::UnsignedLongLong) | (Type::UnsignedLongLong, Type::UnsignedInt) => true,
+            (Type::UnsignedShort, Type::UnsignedLong) | (Type::UnsignedLong, Type::UnsignedShort) => true,
+            (Type::UnsignedShort, Type::UnsignedLongLong) | (Type::UnsignedLongLong, Type::UnsignedShort) => true,
+            (Type::UnsignedLong, Type::UnsignedLongLong) | (Type::UnsignedLongLong, Type::UnsignedLong) => true,
+            
+            // Signed and unsigned integer types are compatible (with sign extension/truncation)
+            (Type::Int, Type::UnsignedInt) | (Type::UnsignedInt, Type::Int) => true,
+            (Type::Short, Type::UnsignedShort) | (Type::UnsignedShort, Type::Short) => true,
+            (Type::Long, Type::UnsignedLong) | (Type::UnsignedLong, Type::Long) => true,
+            (Type::LongLong, Type::UnsignedLongLong) | (Type::UnsignedLongLong, Type::LongLong) => true,
+            
+            // Char types are compatible with integer types
+            (Type::Char, Type::Int) | (Type::Int, Type::Char) => true,
+            (Type::Char, Type::UnsignedInt) | (Type::UnsignedInt, Type::Char) => true,
+            (Type::UnsignedChar, Type::Int) | (Type::Int, Type::UnsignedChar) => true,
+            (Type::UnsignedChar, Type::UnsignedInt) | (Type::UnsignedInt, Type::UnsignedChar) => true,
+            
+            // Bool is compatible with integer types
+            (Type::Bool, Type::Int) | (Type::Int, Type::Bool) => true,
+            (Type::Bool, Type::UnsignedInt) | (Type::UnsignedInt, Type::Bool) => true,
+            
+            // Float and double are compatible with each other
+            (Type::Float, Type::Double) | (Type::Double, Type::Float) => true,
+            
+            // Integer types can be converted to floating point types
+            (Type::Int, Type::Float) | (Type::Float, Type::Int) => true,
+            (Type::Int, Type::Double) | (Type::Double, Type::Int) => true,
+            (Type::UnsignedInt, Type::Float) | (Type::Float, Type::UnsignedInt) => true,
+            (Type::UnsignedInt, Type::Double) | (Type::Double, Type::UnsignedInt) => true,
             
             // Pointers to compatible types are compatible
             (Type::Pointer(s_inner), Type::Pointer(o_inner)) => 
                 s_inner.is_compatible_with(o_inner),
                 
+            // Pointers to void are compatible with any other pointer type
+            (Type::Pointer(s_inner), Type::Pointer(o_inner)) if 
+                matches!(**s_inner, Type::Void) || matches!(**o_inner, Type::Void) => true,
+                
             // Arrays of compatible types are compatible
             (Type::Array(s_inner, _), Type::Array(o_inner, _)) => 
                 s_inner.is_compatible_with(o_inner),
                 
+            // Arrays can decay to pointers
+            (Type::Array(s_inner, _), Type::Pointer(o_inner)) => 
+                s_inner.is_compatible_with(o_inner),
+            (Type::Pointer(s_inner), Type::Array(o_inner, _)) => 
+                s_inner.is_compatible_with(o_inner),
+            
+            // Function types are compatible if return types and parameter types are compatible
+            (Type::Function { return_type: s_ret, parameters: s_params, is_variadic: s_var },
+             Type::Function { return_type: o_ret, parameters: o_params, is_variadic: o_var }) => {
+                // Return types must be compatible
+                if !s_ret.is_compatible_with(o_ret) {
+                    return false;
+                }
+                
+                // Variadic functions are only compatible with other variadic functions
+                if s_var != o_var {
+                    return false;
+                }
+                
+                // Parameter counts must match
+                if s_params.len() != o_params.len() {
+                    return false;
+                }
+                
+                // Each parameter type must be compatible
+                for ((_, s_type), (_, o_type)) in s_params.iter().zip(o_params.iter()) {
+                    if !s_type.is_compatible_with(o_type) {
+                        return false;
+                    }
+                }
+                
+                true
+            }
+            
             // Other types are not compatible
             _ => false,
         }
@@ -292,4 +416,18 @@ pub struct Program {
     pub structs: Vec<Struct>,
     pub includes: Vec<String>,   // List of include directives for C code
     pub globals: Vec<Statement>, // Global variable declarations
+}
+
+// C11 Atomic operations
+#[derive(Debug, Clone)]
+pub enum AtomicOp {
+    Load,
+    Store,
+    Exchange,
+    CompareExchange,
+    FetchAdd,
+    FetchSub,
+    FetchAnd,
+    FetchOr,
+    FetchXor,
 }

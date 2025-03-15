@@ -6,40 +6,45 @@ use crate::parser::Parser;
 impl Parser {
     /// Parse a statement
     pub fn parse_statement(&mut self) -> Result<Statement> {
-        // Check for different statement types
-        if self.match_token(TokenType::LeftBrace) {
-            return self.parse_block();
-        } else if self.match_token(TokenType::If) {
-            return self.parse_if_statement();
+        if self.match_token(TokenType::If) {
+            self.parse_if_statement()
         } else if self.match_token(TokenType::While) {
-            return self.parse_while_statement();
+            self.parse_while_statement()
         } else if self.match_token(TokenType::Do) {
-            return self.parse_do_while_statement();
+            self.parse_do_while_statement()
         } else if self.match_token(TokenType::For) {
-            return self.parse_for_statement();
+            self.parse_for_statement()
         } else if self.match_token(TokenType::Return) {
-            return self.parse_return_statement();
+            self.parse_return_statement()
         } else if self.match_token(TokenType::Break) {
-            self.consume(TokenType::Semicolon, "Expected ';' after 'break'")?;
-            return Ok(Statement::Break);
+            self.parse_break_statement()
         } else if self.match_token(TokenType::Continue) {
-            self.consume(TokenType::Semicolon, "Expected ';' after 'continue'")?;
-            return Ok(Statement::Continue);
+            self.parse_continue_statement()
         } else if self.match_token(TokenType::Switch) {
-            return self.parse_switch_statement();
+            self.parse_switch_statement()
+        } else if self.match_token(TokenType::LeftBrace) {
+            self.parse_block()
+        } else if self.match_token(TokenType::Goto) {
+            self.parse_goto_statement()
+        } else if self.match_token(TokenType::StaticAssert) {
+            self.parse_static_assert_statement()
+        } else if self.match_token(TokenType::Atomic) {
+            self.parse_atomic_statement()
+        } else if self.match_token(TokenType::ThreadLocal) {
+            self.parse_thread_local_statement()
+        } else if self.match_token(TokenType::Noreturn) {
+            self.parse_noreturn_statement()
+        } else if self.check(TokenType::Identifier) && self.peek_next() == TokenType::Colon {
+            self.parse_labeled_statement()
         } else if self.is_type_specifier() {
-            // Variable declaration
-            return self.parse_variable_declaration();
+            self.parse_variable_declaration()
+        } else {
+            self.parse_expression_statement()
         }
-
-        // If none of the above, it's an expression statement
-        let expr = self.parse_expression()?;
-        self.consume(TokenType::Semicolon, "Expected ';' after expression")?;
-        Ok(Statement::ExpressionStatement(expr))
     }
 
     /// Parse a block of statements
-    fn parse_block(&mut self) -> Result<Statement> {
+    pub fn parse_block(&mut self) -> Result<Statement> {
         let mut statements = Vec::new();
 
         while !self.check(TokenType::RightBrace) && !self.is_at_end() {
@@ -47,6 +52,7 @@ impl Parser {
         }
 
         self.consume(TokenType::RightBrace, "Expected '}' after block")?;
+
         Ok(Statement::Block(statements))
     }
 
@@ -56,9 +62,8 @@ impl Parser {
         let condition = self.parse_expression()?;
         self.consume(TokenType::RightParen, "Expected ')' after if condition")?;
 
-        let then_block = Box::new(self.parse_statement()?);
-
-        let else_block = if self.match_token(TokenType::Else) {
+        let then_statement = Box::new(self.parse_statement()?);
+        let else_statement = if self.match_token(TokenType::Else) {
             Some(Box::new(self.parse_statement()?))
         } else {
             None
@@ -66,8 +71,8 @@ impl Parser {
 
         Ok(Statement::If {
             condition,
-            then_block,
-            else_block,
+            then_block: then_statement,
+            else_block: else_statement,
         })
     }
 
@@ -90,10 +95,7 @@ impl Parser {
         self.consume(TokenType::LeftParen, "Expected '(' after 'while'")?;
         let condition = self.parse_expression()?;
         self.consume(TokenType::RightParen, "Expected ')' after while condition")?;
-        self.consume(
-            TokenType::Semicolon,
-            "Expected ';' after do-while statement",
-        )?;
+        self.consume(TokenType::Semicolon, "Expected ';' after do-while statement")?;
 
         Ok(Statement::DoWhile { body, condition })
     }
@@ -106,11 +108,10 @@ impl Parser {
         let initializer = if self.match_token(TokenType::Semicolon) {
             None
         } else if self.is_type_specifier() {
-            // Variable declaration as initializer
-            let init_stmt = self.parse_variable_declaration()?;
-            Some(Box::new(init_stmt))
+            // C99 style for loop with declaration in initializer
+            let declaration = self.parse_variable_declaration()?;
+            Some(Box::new(declaration))
         } else {
-            // Expression as initializer
             let expr = self.parse_expression()?;
             self.consume(TokenType::Semicolon, "Expected ';' after for initializer")?;
             Some(Box::new(Statement::ExpressionStatement(expr)))
@@ -146,29 +147,39 @@ impl Parser {
     /// Parse a return statement
     fn parse_return_statement(&mut self) -> Result<Statement> {
         let value = if self.check(TokenType::Semicolon) {
-            // Return without value (void)
-            Expression::IntegerLiteral(0) // Placeholder for void return
+            // Return with no value (void)
+            Expression::IntegerLiteral(0) // Placeholder
         } else {
             self.parse_expression()?
         };
 
         self.consume(TokenType::Semicolon, "Expected ';' after return value")?;
+
         Ok(Statement::Return(value))
+    }
+
+    /// Parse a break statement
+    fn parse_break_statement(&mut self) -> Result<Statement> {
+        self.consume(TokenType::Semicolon, "Expected ';' after 'break'")?;
+        Ok(Statement::Break)
+    }
+
+    /// Parse a continue statement
+    fn parse_continue_statement(&mut self) -> Result<Statement> {
+        self.consume(TokenType::Semicolon, "Expected ';' after 'continue'")?;
+        Ok(Statement::Continue)
     }
 
     /// Parse a switch statement
     fn parse_switch_statement(&mut self) -> Result<Statement> {
         self.consume(TokenType::LeftParen, "Expected '(' after 'switch'")?;
         let expression = self.parse_expression()?;
-        self.consume(
-            TokenType::RightParen,
-            "Expected ')' after switch expression",
-        )?;
+        self.consume(TokenType::RightParen, "Expected ')' after switch expression")?;
 
         self.consume(TokenType::LeftBrace, "Expected '{' after switch expression")?;
 
         let mut cases = Vec::new();
-        let mut current_case_value: Option<Expression> = None;
+        let mut current_case_value = None;
         let mut current_case_statements = Vec::new();
 
         while !self.check(TokenType::RightBrace) && !self.is_at_end() {
@@ -183,8 +194,9 @@ impl Parser {
                 }
 
                 // Parse the case value
-                current_case_value = Some(self.parse_expression()?);
+                let value = self.parse_expression()?;
                 self.consume(TokenType::Colon, "Expected ':' after case value")?;
+                current_case_value = Some(value);
             } else if self.match_token(TokenType::Default) {
                 // If we were building a case, add it to the list
                 if !current_case_statements.is_empty() {
@@ -195,11 +207,10 @@ impl Parser {
                     current_case_statements = Vec::new();
                 }
 
-                // Default case has no value
-                current_case_value = None;
                 self.consume(TokenType::Colon, "Expected ':' after 'default'")?;
+                current_case_value = None; // None represents default case
             } else {
-                // Parse statement for the current case
+                // Parse a statement for the current case
                 current_case_statements.push(self.parse_statement()?);
             }
         }
@@ -215,5 +226,89 @@ impl Parser {
         self.consume(TokenType::RightBrace, "Expected '}' after switch cases")?;
 
         Ok(Statement::Switch { expression, cases })
+    }
+
+    /// Parse an expression statement
+    fn parse_expression_statement(&mut self) -> Result<Statement> {
+        let expr = self.parse_expression()?;
+        self.consume(TokenType::Semicolon, "Expected ';' after expression")?;
+        Ok(Statement::ExpressionStatement(expr))
+    }
+
+    /// Parse a goto statement
+    fn parse_goto_statement(&mut self) -> Result<Statement> {
+        let label = self.consume(TokenType::Identifier, "Expected label name after 'goto'")?
+            .lexeme
+            .clone();
+        self.consume(TokenType::Semicolon, "Expected ';' after goto label")?;
+        Ok(Statement::Goto(label))
+    }
+
+    /// Parse a labeled statement
+    fn parse_labeled_statement(&mut self) -> Result<Statement> {
+        let label = self.consume(TokenType::Identifier, "Expected label name")?
+            .lexeme
+            .clone();
+        self.consume(TokenType::Colon, "Expected ':' after label name")?;
+        let statement = self.parse_statement()?;
+        Ok(Statement::Label(label, Box::new(statement)))
+    }
+
+    /// Parse a _Static_assert statement (C11)
+    fn parse_static_assert_statement(&mut self) -> Result<Statement> {
+        self.consume(TokenType::LeftParen, "Expected '(' after '_Static_assert'")?;
+        
+        // Parse the condition
+        let condition = self.parse_expression()?;
+        
+        self.consume(TokenType::Comma, "Expected ',' after condition in _Static_assert")?;
+        
+        // Parse the message string
+        let message_token = self.consume(TokenType::StringLiteral, "Expected string literal message in _Static_assert")?;
+        let message = message_token.lexeme.clone();
+        
+        self.consume(TokenType::RightParen, "Expected ')' after _Static_assert")?;
+        self.consume(TokenType::Semicolon, "Expected ';' after _Static_assert")?;
+        
+        Ok(Statement::StaticAssert {
+            condition,
+            message,
+        })
+    }
+
+    /// Parse an atomic statement (C11)
+    fn parse_atomic_statement(&mut self) -> Result<Statement> {
+        // _Atomic compound statement
+        self.consume(TokenType::LeftBrace, "Expected '{' after '_Atomic'")?;
+        
+        let mut statements = Vec::new();
+        
+        while !self.check(TokenType::RightBrace) && !self.is_at_end() {
+            statements.push(self.parse_statement()?);
+        }
+        
+        self.consume(TokenType::RightBrace, "Expected '}' after atomic block")?;
+        
+        Ok(Statement::AtomicBlock(statements))
+    }
+
+    /// Parse a _Thread_local statement (C11)
+    fn parse_thread_local_statement(&mut self) -> Result<Statement> {
+        // _Thread_local declaration
+        let declaration = self.parse_statement()?;
+        
+        Ok(Statement::ThreadLocal {
+            declaration: Box::new(declaration),
+        })
+    }
+
+    /// Parse a _Noreturn statement (C11)
+    fn parse_noreturn_statement(&mut self) -> Result<Statement> {
+        // _Noreturn function
+        let declaration = self.parse_statement()?;
+        
+        Ok(Statement::NoReturn {
+            declaration: Box::new(declaration),
+        })
     }
 }

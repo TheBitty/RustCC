@@ -10,7 +10,7 @@ mod statements;
 mod utils;
 
 use ast::{Program, Type};
-use error::{Error, ErrorKind, Result};
+use error::Result;
 use std::collections::HashMap;
 use token::{Token, TokenType};
 
@@ -108,11 +108,7 @@ impl Parser {
             } else {
                 // Skip unrecognized tokens
                 if !self.is_at_end() {
-                    return Err(Error::from_token(
-                        ErrorKind::SyntaxError("Unexpected token".to_string()),
-                        &self.peek(),
-                        format!("Unexpected token '{}' at top level", self.peek().lexeme),
-                    ));
+                    return Err(self.unexpected_token_error("declaration or definition"));
                 }
             }
         }
@@ -163,11 +159,7 @@ impl Parser {
         }
 
         // If we get here, it's an error
-        Err(Error::from_token(
-            ErrorKind::InvalidType("Expected type specifier".to_string()),
-            &self.peek(),
-            "Expected type specifier".to_string(),
-        ))
+        Err(self.unexpected_token_error("type specifier"))
     }
 
     // Parse an array type (used in struct fields and variable declarations)
@@ -175,21 +167,17 @@ impl Parser {
         // Parse the array size if present
         let size = if !self.check(TokenType::RightBracket) {
             if let Ok(size_token) = self.consume(TokenType::IntegerLiteral, "Expected array size") {
-                if let Ok(size) = size_token.lexeme.parse::<usize>() {
+                let token_lexeme = size_token.lexeme.clone();
+                if let Ok(size) = token_lexeme.parse::<usize>() {
                     Some(size)
                 } else {
-                    return Err(Error::from_token(
-                        ErrorKind::InvalidType("Invalid array size".to_string()),
-                        size_token,
-                        "Invalid array size".to_string(),
+                    return Err(self.error(
+                        error::ErrorKind::InvalidArraySize(token_lexeme),
+                        self.current - 1
                     ));
                 }
             } else {
-                return Err(Error::from_token(
-                    ErrorKind::InvalidType("Expected array size".to_string()),
-                    &self.peek(),
-                    "Expected array size".to_string(),
-                ));
+                return Err(self.unexpected_token_error("array size"));
             }
         } else {
             None
@@ -198,6 +186,80 @@ impl Parser {
         self.consume(TokenType::RightBracket, "Expected ']' after array size")?;
 
         Ok(Type::Array(Box::new(base_type), size))
+    }
+
+    // Add a method to create errors with source context
+    fn error(&self, kind: error::ErrorKind, token_index: usize) -> error::Error {
+        let token = &self.tokens[token_index];
+        let line = token.line;
+        let column = token.column;
+        
+        // Create the basic error
+        let mut err = error::Error::new(kind, line, column);
+        
+        // Add source context if available
+        if let Some(source_line) = self.get_source_line(line) {
+            err = err.with_source_line(source_line);
+        }
+        
+        err
+    }
+
+    // Get the source line for a given line number
+    fn get_source_line(&self, line: usize) -> Option<String> {
+        // This is a simplified implementation
+        // In a real compiler, we would store the source code and retrieve the actual line
+        
+        // For now, we'll reconstruct the line from tokens on the same line
+        let line_tokens: Vec<&Token> = self.tokens.iter()
+            .filter(|t| t.line == line)
+            .collect();
+        
+        if line_tokens.is_empty() {
+            return None;
+        }
+        
+        // Sort tokens by column
+        let mut sorted_tokens = line_tokens.clone();
+        sorted_tokens.sort_by_key(|t| t.column);
+        
+        // Reconstruct the line
+        let mut result = String::new();
+        let mut last_column = 0;
+        
+        for token in sorted_tokens {
+            // Add spaces between tokens
+            if token.column > last_column {
+                result.push_str(&" ".repeat(token.column - last_column));
+            }
+            
+            // Add the token lexeme
+            result.push_str(&token.lexeme);
+            
+            // Update last column
+            last_column = token.column + token.lexeme.len();
+        }
+        
+        Some(result)
+    }
+
+    // Helper method to create an unexpected token error
+    fn unexpected_token_error(&self, expected: &str) -> error::Error {
+        let token = &self.tokens[self.current];
+        let kind = error::ErrorKind::UnexpectedToken(
+            token.lexeme.clone(),
+            expected.to_string(),
+        );
+        
+        self.error(kind, self.current)
+    }
+
+    // Helper method to create an unexpected EOF error
+    fn unexpected_eof_error(&self, expected: &str) -> error::Error {
+        let last_token = self.tokens.last().unwrap();
+        let kind = error::ErrorKind::UnexpectedEOF(expected.to_string());
+        
+        error::Error::new(kind, last_token.line, last_token.column)
     }
 }
 
