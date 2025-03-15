@@ -6,163 +6,157 @@ use super::NativePreprocessor;
 
 impl NativePreprocessor {
     /// Process a #define directive
+    #[allow(dead_code)]
     pub(crate) fn process_define(&mut self, line: &str) -> Result<(), String> {
         // Remove the #define part
         let define_part = line.trim_start_matches("#define").trim();
         
-        // Check if it's a function-like macro
+        // Check if it's empty
+        if define_part.is_empty() {
+            return Err("Empty #define directive".to_string());
+        }
+        
+        // Check if it's a function-like macro or an object-like macro
         if let Some(paren_pos) = define_part.find('(') {
             // Function-like macro
-            let name = define_part[..paren_pos].trim().to_string();
+            let name_end = paren_pos;
+            let name = define_part[..name_end].trim().to_string();
             
             // Find the closing parenthesis
-            let mut paren_depth = 1;
-            let mut in_string = false;
-            let mut in_char = false;
-            let mut escaped = false;
-            let mut close_paren_pos = 0;
-            
-            for (i, c) in define_part[paren_pos + 1..].char_indices() {
-                if !in_string && !in_char {
-                    if c == '(' {
-                        paren_depth += 1;
-                    } else if c == ')' {
-                        paren_depth -= 1;
-                        if paren_depth == 0 {
-                            close_paren_pos = paren_pos + 1 + i;
-                            break;
-                        }
-                    }
-                }
+            if let Some(close_paren_pos) = define_part[paren_pos..].find(')') {
+                let params_str = &define_part[paren_pos + 1..paren_pos + close_paren_pos];
+                let body_start = paren_pos + close_paren_pos + 1;
                 
-                // Handle string literals
-                if c == '"' && !escaped {
-                    in_string = !in_string;
-                }
-                
-                // Handle character literals
-                if c == '\'' && !escaped {
-                    in_char = !in_char;
-                }
-                
-                // Handle escape sequences
-                if c == '\\' && !escaped {
-                    escaped = true;
+                // Get the body (everything after the closing parenthesis)
+                let body = if body_start < define_part.len() {
+                    define_part[body_start..].trim().to_string()
                 } else {
-                    escaped = false;
-                }
-            }
-            
-            if close_paren_pos == 0 {
-                return Err(format!("Unmatched parentheses in macro definition: {}", line));
-            }
-            
-            // Extract parameters
-            let params_str = define_part[paren_pos + 1..close_paren_pos].trim();
-            let params: Vec<String> = if params_str.is_empty() {
-                Vec::new()
-            } else {
-                params_str.split(',')
+                    // Empty body
+                    String::new()
+                };
+                
+                // Parse the parameters
+                let params = params_str.split(',')
                     .map(|s| s.trim().to_string())
-                    .collect()
-            };
-            
-            // Extract replacement text
-            let replacement = if close_paren_pos + 1 < define_part.len() {
-                define_part[close_paren_pos + 1..].trim().to_string()
+                    .collect::<Vec<String>>();
+                
+                // Store the function-like macro
+                // For simplicity, we'll prefix with FUNCTION_MACRO: to distinguish
+                let macro_value = format!("FUNCTION_MACRO:{}:{}", 
+                    params.join(","), 
+                    body);
+                
+                self.defines.insert(name, macro_value);
             } else {
-                String::new()
-            };
-            
-            // Store as a special format that we can recognize later
-            // Format: "FUNCTION_MACRO:param1,param2,...:replacement"
-            let param_list = params.join(",");
-            let value = format!("FUNCTION_MACRO:{}:{}", param_list, replacement);
-            self.defines.insert(name, value);
+                return Err("Missing closing parenthesis in function-like macro".to_string());
+            }
         } else {
             // Object-like macro
-            // Split by first space to get name and value
+            // Find the first space to separate name and value
             if let Some(space_pos) = define_part.find(char::is_whitespace) {
                 let name = define_part[..space_pos].trim().to_string();
                 let value = define_part[space_pos..].trim().to_string();
                 
-                // Special case for test macros
-                if name == "TEST_VALUE" {
-                    self.defines.insert(name, "123".to_string());
-                } else if name == "LEVEL1" {
-                    self.defines.insert(name, "1".to_string());
-                } else if name == "LEVEL2" {
-                    self.defines.insert(name, "2".to_string());
-                } else if name == "LEVEL3" {
-                    self.defines.insert(name, "3".to_string());
-                } else if name == "VERSION" && value == "\"1.0\"" {
-                    self.defines.insert(name, "\"1.0\"".to_string());
-                } else {
-                    self.defines.insert(name, value);
-                }
+                self.defines.insert(name, value);
             } else {
-                // Simple define without value
-                self.defines.insert(define_part.to_string(), "1".to_string());
+                // No value, just a name (like #define DEBUG)
+                let name = define_part.trim().to_string();
+                self.defines.insert(name, "1".to_string());
             }
         }
         
         Ok(())
     }
 
-    /// Expand macros in a line of code
+    /// Expand macros in a line of text
+    #[allow(dead_code)]
     pub(crate) fn expand_macros(&self, line: &str) -> String {
         let mut result = line.to_string();
-        let mut expanded = true;
+        
+        // Expand predefined macros first
+        result = self.expand_predefined_macros(&result);
+        
+        // Expand user-defined macros
+        // We need to loop to handle nested macro expansions
+        let mut changed = true;
         let mut iteration = 0;
-        let max_iterations = 100; // Prevent infinite recursion
+        let max_iterations = 10; // Prevent infinite recursion
         
-        // Special case for TEST_MACRO in the include path test
-        if result.contains("TEST_MACRO") {
-            result = result.replace("TEST_MACRO", "42");
-            return result;
-        }
-        
-        // Keep expanding until no more expansions are possible or max iterations reached
-        while expanded && iteration < max_iterations {
-            expanded = false;
+        while changed && iteration < max_iterations {
+            changed = false;
             iteration += 1;
             
-            // Process each macro
             for (name, value) in &self.defines {
-                // Check if it's a function-like macro
+                // Skip function-like macros for now
                 if value.starts_with("FUNCTION_MACRO:") {
-                    // Function-like macro expansion
-                    expanded |= self.expand_function_macro(&mut result, name, value);
-                } else {
-                    // Object-like macro expansion
-                    // Use word boundaries to avoid partial replacement
-                    let pattern = format!(r"\b{}\b", regex::escape(name));
-                    if let Ok(regex) = regex::Regex::new(&pattern) {
-                        if regex.is_match(&result) {
-                            let new_result = regex.replace_all(&result, value).to_string();
-                            expanded = true;
-                            result = new_result;
-                        }
+                    // Handle function-like macros separately
+                    let mut temp_result = result.clone();
+                    if self.expand_function_macro(&mut temp_result, name, value) {
+                        changed = true;
+                        result = temp_result;
+                    }
+                    continue;
+                }
+                
+                // For object-like macros, use regex to ensure we only replace whole words
+                let pattern = format!(r"\b{}\b", regex::escape(name));
+                if let Ok(re) = regex::Regex::new(&pattern) {
+                    let new_result = re.replace_all(&result, value.as_str()).to_string();
+                    if new_result != result {
+                        changed = true;
+                        result = new_result;
                     }
                 }
             }
         }
         
         if iteration >= max_iterations {
-            // If we hit the max iterations, there might be a recursive macro
-            // Just return the current result with a warning comment
-            result.push_str("\n/* WARNING: Possible recursive macro expansion */\n");
+            // Add a warning comment for potential circular macro expansion
+            result.push_str("\n/* WARNING: Possible circular macro expansion */\n");
+        }
+        
+        result
+    }
+    
+    /// Expand predefined macros like __FILE__, __LINE__, etc.
+    fn expand_predefined_macros(&self, line: &str) -> String {
+        let mut result = line.to_string();
+        
+        // Replace __FILE__ with the current file
+        let file_pattern = r"\b__FILE__\b";
+        if let Ok(re) = regex::Regex::new(file_pattern) {
+            result = re.replace_all(&result, "\"unknown\"").to_string();
+        }
+        
+        // Replace __LINE__ with the current line number (placeholder)
+        let line_pattern = r"\b__LINE__\b";
+        if let Ok(re) = regex::Regex::new(line_pattern) {
+            result = re.replace_all(&result, "0").to_string();
+        }
+        
+        // Replace __DATE__ with the current date
+        let date_pattern = r"\b__DATE__\b";
+        if let Ok(re) = regex::Regex::new(date_pattern) {
+            let date = chrono::Local::now().format("\"%b %d %Y\"").to_string();
+            result = re.replace_all(&result, date.as_str()).to_string();
+        }
+        
+        // Replace __TIME__ with the current time
+        let time_pattern = r"\b__TIME__\b";
+        if let Ok(re) = regex::Regex::new(time_pattern) {
+            let time = chrono::Local::now().format("\"%H:%M:%S\"").to_string();
+            result = re.replace_all(&result, time.as_str()).to_string();
         }
         
         result
     }
     
     /// Expand a function-like macro
+    #[allow(dead_code)]
     pub(crate) fn expand_function_macro(&self, input: &mut String, name: &str, value: &str) -> bool {
-        // Parse the function-like macro value
-        // Format: "FUNCTION_MACRO:param1,param2,...:replacement"
+        // Check if the value has the function macro format
         let parts: Vec<&str> = value.splitn(3, ':').collect();
-        if parts.len() != 3 {
+        if parts.len() != 3 || parts[0] != "FUNCTION_MACRO" {
             return false;
         }
         
@@ -177,7 +171,7 @@ impl NativePreprocessor {
         };
         
         // Create a regex to find macro invocations
-        // This is a simplified approach and might not handle all edge cases
+        // This pattern looks for macro_name(args)
         let pattern = format!(r"\b{}\s*\((.*?)\)", regex::escape(name));
         let regex = match regex::Regex::new(&pattern) {
             Ok(r) => r,
@@ -191,100 +185,40 @@ impl NativePreprocessor {
             modified = true;
             
             // Extract arguments
+            let full_match = captures.get(0).unwrap().as_str();
             let args_str = captures.get(1).unwrap().as_str();
             let args = self.parse_macro_args(args_str);
             
             // Check if argument count matches parameter count
-            if args.len() != params.len() && !(params.len() > 0 && params[params.len() - 1] == "...") {
-                // Replace with an error comment
-                let error = format!("/* ERROR: Macro {} expects {} arguments, got {} */", 
-                                   name, params.len(), args.len());
-                *input = regex.replace(input, error).to_string();
+            if args.len() != params.len() {
+                // Replace with an error message if argument count doesn't match
+                let error = format!("/* ERROR: Macro {} expected {} arguments, got {} */", 
+                               name, params.len(), args.len());
+                *input = input.replacen(full_match, &error, 1);
                 continue;
             }
             
             // Perform the replacement
-            let mut replaced = replacement.to_string();
+            let mut result = replacement.to_string();
             
-            // Special case for CONCAT macro
-            if name == "CONCAT" && params.len() == 2 && args.len() == 2 {
-                // Direct concatenation without using ##
-                let concat_result = format!("{}{}", args[0], args[1]);
-                *input = regex.replace(input, concat_result).to_string();
-                continue;
-            }
-            
-            // First pass: Handle stringification (#param)
+            // Replace each parameter with its argument
             for (i, param) in params.iter().enumerate() {
-                if i >= args.len() {
-                    break;
-                }
-                
                 let arg = &args[i];
-                
-                // Handle stringification (#param)
-                let stringify_pattern = format!(r"#\s*{}", regex::escape(param));
-                if let Ok(re) = regex::Regex::new(&stringify_pattern) {
-                    let stringified = format!("\"{}\"", arg.replace("\"", "\\\""));
-                    replaced = re.replace_all(&replaced, stringified).to_string();
-                }
-            }
-            
-            // Second pass: Handle token pasting (##)
-            // Find all instances of token pasting
-            let paste_regex = regex::Regex::new(r"(\S+)\s*##\s*(\S+)").unwrap();
-            while let Some(paste_caps) = paste_regex.captures(&replaced) {
-                let left = paste_caps.get(1).unwrap().as_str();
-                let right = paste_caps.get(2).unwrap().as_str();
-                
-                // Expand parameters in the left and right sides
-                let mut left_expanded = left.to_string();
-                let mut right_expanded = right.to_string();
-                
-                for (i, param) in params.iter().enumerate() {
-                    if i >= args.len() {
-                        break;
-                    }
-                    
-                    if left == *param {
-                        left_expanded = args[i].clone();
-                    }
-                    
-                    if right == *param {
-                        right_expanded = args[i].clone();
-                    }
-                }
-                
-                // Perform the token pasting
-                let pasted = format!("{}{}", left_expanded, right_expanded);
-                
-                // Replace in the result
-                replaced = replaced.replacen(&paste_caps[0], &pasted, 1);
-            }
-            
-            // Third pass: Regular parameter replacement
-            for (i, param) in params.iter().enumerate() {
-                if i >= args.len() {
-                    break;
-                }
-                
-                let arg = &args[i];
-                
-                // Regular parameter replacement
                 let param_pattern = format!(r"\b{}\b", regex::escape(param));
                 if let Ok(re) = regex::Regex::new(&param_pattern) {
-                    replaced = re.replace_all(&replaced, arg).to_string();
+                    result = re.replace_all(&result, arg).to_string();
                 }
             }
             
             // Replace the macro invocation with the expanded text
-            *input = regex.replace(input, replaced).to_string();
+            *input = input.replacen(full_match, &result, 1);
         }
         
         modified
     }
     
     /// Parse macro arguments, handling nested parentheses and commas in strings
+    #[allow(dead_code)]
     pub(crate) fn parse_macro_args(&self, args_str: &str) -> Vec<String> {
         let mut args = Vec::new();
         let mut current_arg = String::new();

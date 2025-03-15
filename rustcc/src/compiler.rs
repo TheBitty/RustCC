@@ -29,13 +29,16 @@ pub struct Compiler {
 }
 
 /// Optimization levels for the compiler
+/// 
+/// Note: The optimizer has been removed from the codebase.
+/// This enum is kept for backward compatibility but has no effect.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OptimizationLevel {
     /// No optimizations
     None,
-    /// Basic optimizations like constant folding
+    /// Basic optimizations like constant folding (deprecated)
     Basic,
-    /// Full optimizations including dead code elimination and function inlining
+    /// Full optimizations including dead code elimination and function inlining (deprecated)
     Full,
 }
 
@@ -246,6 +249,9 @@ impl Compiler {
         if self.verbose {
             println!("Semantic analysis completed");
         }
+        
+        // Note: Optimizer code has been removed from the codebase.
+        // The optimization_level setting is ignored.
 
         // Apply obfuscations based on the obfuscation level
         let obf_level = if let Some(config) = &self.config {

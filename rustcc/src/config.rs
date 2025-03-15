@@ -26,6 +26,9 @@ pub struct Config {
 }
 
 /// Configuration for optimization
+/// 
+/// Note: The optimizer has been removed from the codebase.
+/// This configuration is kept for backward compatibility but has no effect.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OptimizationConfig {
     /// Optimization level

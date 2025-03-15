@@ -4,9 +4,7 @@
 //! It handles preprocessor directives, macro expansion, and conditional compilation.
 
 use std::collections::HashMap;
-use std::env;
 use std::fs;
-use std::io;
 use std::path::{Path, PathBuf};
 
 // Local modules
@@ -27,8 +25,10 @@ pub struct NativePreprocessor {
     /// Whether to keep comments in the preprocessed output
     pub(crate) keep_comments: bool,
     /// Current include depth (to prevent infinite recursion)
+    #[allow(dead_code)]
     pub(crate) include_depth: usize,
     /// Maximum include depth
+    #[allow(dead_code)]
     pub(crate) max_include_depth: usize,
 }
 
@@ -99,6 +99,86 @@ impl NativePreprocessor {
         // Add current directory
         self.add_include_dir(".");
     }
+
+    /// Process a conditional block (#if, #ifdef, #ifndef)
+    fn process_conditional_block(&mut self, lines: &[&str], start_idx: usize, file_name: &str) 
+        -> Result<(String, usize), String> {
+        let start_line = lines[start_idx].trim();
+        let mut result = String::new();
+        let mut i = start_idx;
+        let mut depth = 1;
+        let mut include_output = self.evaluate_conditional(start_line)?;
+        let mut processed_elif = false;
+        
+        // Skip the initial directive line
+        i += 1;
+        
+        // Process lines until we find the matching #endif
+        while i < lines.len() && depth > 0 {
+            let line = lines[i];
+            let trimmed = line.trim();
+            
+            if trimmed.starts_with("#if") {
+                // Nested conditional
+                depth += 1;
+                if include_output {
+                    // If we're including the parent block, process this nested block
+                    let (nested_result, new_i) = self.process_conditional_block(lines, i, file_name)?;
+                    result.push_str(&nested_result);
+                    i = new_i;
+                    continue;
+                }
+            } else if trimmed.starts_with("#endif") {
+                depth -= 1;
+                if depth == 0 {
+                    // This is the end of our conditional block
+                    break;
+                }
+            } else if depth == 1 && (trimmed.starts_with("#else") || trimmed.starts_with("#elif")) {
+                if trimmed.starts_with("#else") {
+                    // Toggle inclusion for #else if we haven't processed an #elif that was true
+                    if !processed_elif {
+                        include_output = !include_output;
+                    } else {
+                        include_output = false;
+                    }
+                } else if trimmed.starts_with("#elif") {
+                    // For #elif, check the condition if nothing before was true
+                    if !processed_elif && !include_output {
+                        include_output = self.evaluate_conditional(trimmed.replace("#elif", "#if").as_str())?;
+                        if include_output {
+                            processed_elif = true;
+                        }
+                    } else {
+                        // If something before was true, don't include this block
+                        include_output = false;
+                    }
+                }
+                i += 1;
+                continue;
+            }
+            
+            // Include the line if the condition is met
+            if include_output {
+                if trimmed.starts_with('#') {
+                    // Process directives inside the conditional
+                    match self.process_directive(line, file_name) {
+                        Ok(processed) => result.push_str(&processed),
+                        Err(e) => return Err(e),
+                    }
+                } else {
+                    // Expand macros in regular lines
+                    let expanded = self.expand_macros(line);
+                    result.push_str(&expanded);
+                    result.push('\n');
+                }
+            }
+            
+            i += 1;
+        }
+        
+        Ok((result, i))
+    }
 }
 
 impl Preprocessor for NativePreprocessor {
@@ -114,22 +194,59 @@ impl Preprocessor for NativePreprocessor {
         let content = fs::read_to_string(path)
             .map_err(|e| format!("Failed to read file {}: {}", file_path, e))?;
         
-        // Get the directory of the file
-        let current_dir = path.parent()
-            .unwrap_or_else(|| Path::new("."))
-            .to_str()
-            .unwrap_or(".");
+        // Add the directory of the file to include paths temporarily for this file
+        if let Some(dir) = path.parent() {
+            if dir.exists() {
+                if let Some(dir_str) = dir.to_str() {
+                    self.add_include_dir(dir_str);
+                }
+            }
+        }
         
-        // For now, just return the content as-is (placeholder)
-        // In a real implementation, we would process the content
-        Ok(content)
+        // Process the content using the file name
+        let file_name = path.to_str().unwrap_or(file_path);
+        self.preprocess_string(&content, file_name)
     }
     
     /// Preprocess a string
     fn preprocess_string(&mut self, content: &str, file_name: &str) -> Result<String, String> {
-        // For now, just return the content as-is (placeholder)
-        // In a real implementation, we would process the content
-        Ok(content.to_string())
+        // Split content into lines for line-by-line processing
+        let lines: Vec<&str> = content.lines().collect();
+        let mut result = String::new();
+        let mut i = 0;
+        
+        // Process each line
+        while i < lines.len() {
+            let line = lines[i];
+            let trimmed = line.trim();
+            
+            // Check if it's a preprocessor directive
+            if trimmed.starts_with('#') {
+                if trimmed.starts_with("#if") || trimmed.starts_with("#ifdef") || trimmed.starts_with("#ifndef") {
+                    // This is the start of a conditional block
+                    // Find the end of the block and process it
+                    let (processed, new_i) = self.process_conditional_block(&lines, i, file_name)?;
+                    result.push_str(&processed);
+                    i = new_i;
+                    continue;
+                } else {
+                    // Other directives (#include, #define, etc.)
+                    match self.process_directive(line, file_name) {
+                        Ok(processed) => result.push_str(&processed),
+                        Err(e) => return Err(e),
+                    }
+                }
+            } else {
+                // Regular code line - expand macros
+                let expanded = self.expand_macros(line);
+                result.push_str(&expanded);
+                result.push('\n');
+            }
+            
+            i += 1;
+        }
+        
+        Ok(result)
     }
 }
 

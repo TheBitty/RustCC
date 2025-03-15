@@ -2,9 +2,11 @@ use std::path::{Path, PathBuf};
 use std::fs;
 
 use super::NativePreprocessor;
+use crate::preprocessor::Preprocessor;
 
 impl NativePreprocessor {
     /// Process an #include directive
+    #[allow(dead_code)]
     pub(crate) fn process_include(&mut self, line: &str, current_file: &str) -> Result<String, String> {
         // Remove the #include part
         let include_part = line.trim_start_matches("#include").trim();
@@ -26,23 +28,41 @@ impl NativePreprocessor {
         // Find the include file
         let include_file = self.find_include_file(&expanded_path, is_system, current_file)?;
         
+        // Increment include depth to prevent infinite recursion
+        self.include_depth += 1;
+        if self.include_depth > self.max_include_depth {
+            self.include_depth -= 1;
+            return Err(format!("Maximum include depth exceeded ({})", self.max_include_depth));
+        }
+        
         // Read the file content
-        let content = fs::read_to_string(&include_file)
-            .map_err(|e| format!("Failed to read include file {}: {}", include_file.display(), e))?;
+        let content = match fs::read_to_string(&include_file) {
+            Ok(content) => content,
+            Err(e) => {
+                self.include_depth -= 1;
+                return Err(format!("Failed to read include file {}: {}", include_file.display(), e));
+            }
+        };
         
-        // Preprocess the included content
-        let preprocessed = self.preprocess_content(&content, &include_file.to_string_lossy())?;
+        // Process the included content
+        let file_name = include_file.to_string_lossy();
+        let result = match self.preprocess_string(&content, &file_name) {
+            Ok(result) => result,
+            Err(e) => {
+                self.include_depth -= 1;
+                return Err(e);
+            }
+        };
         
-        Ok(preprocessed)
+        // Decrement include depth
+        self.include_depth -= 1;
+        
+        Ok(result)
     }
 
     /// Find an include file
+    #[allow(dead_code)]
     pub(crate) fn find_include_file(&self, path: &str, is_system: bool, current_file: &str) -> Result<PathBuf, String> {
-        // Special case for test
-        if path == "test_include.h" {
-            return Ok(PathBuf::from("test_include.h"));
-        }
-        
         // For local includes, first check relative to the current file
         if !is_system {
             let current_dir = Path::new(current_file).parent().unwrap_or_else(|| Path::new(""));
@@ -53,42 +73,33 @@ impl NativePreprocessor {
             }
         }
         
-        // Check in the include directories
+        // Check all include directories
         for dir in &self.include_dirs {
-            let full_path = Path::new(dir).join(path);
-            
-            if full_path.exists() {
-                return Ok(full_path);
+            let include_path = dir.join(path);
+            if include_path.exists() {
+                return Ok(include_path);
             }
         }
         
-        // Special case for standard library headers
-        if self.is_standard_header(path) {
-            // For now, we'll just return a dummy path for standard headers
-            // In a real implementation, we would have a proper standard library
-            return Ok(PathBuf::from(format!("<{}>", path)));
+        // If it's a system header, allow it even if not found
+        // This is to handle standard headers that might not be present
+        // but shouldn't cause compilation to fail
+        if is_system && self.is_standard_header(path) {
+            // Return a placeholder path that won't be read
+            return Ok(PathBuf::from(path));
         }
         
         Err(format!("Include file not found: {}", path))
     }
 
-    /// Check if a header is a standard library header
+    /// Check if a path is a standard header
+    #[allow(dead_code)]
     pub(crate) fn is_standard_header(&self, path: &str) -> bool {
         // List of common standard headers
         const STANDARD_HEADERS: &[&str] = &[
             "stdio.h", "stdlib.h", "string.h", "math.h", "assert.h",
             "ctype.h", "errno.h", "float.h", "limits.h", "locale.h",
-            "setjmp.h", "signal.h", "stdarg.h", "stddef.h", "time.h",
-            "iso646.h", "wchar.h", "wctype.h", "complex.h", "fenv.h",
-            "inttypes.h", "stdbool.h", "stdint.h", "tgmath.h",
-            // C++ headers
-            "iostream", "vector", "string", "map", "set",
-            "algorithm", "memory", "functional", "utility",
-            // POSIX headers
-            "unistd.h", "sys/types.h", "sys/stat.h", "fcntl.h",
-            "dirent.h", "dlfcn.h", "pthread.h", "sched.h",
-            // Windows headers
-            "windows.h", "winbase.h", "windef.h", "winsock2.h",
+            "setjmp.h", "signal.h", "stdarg.h", "stddef.h", "time.h"
         ];
         
         STANDARD_HEADERS.contains(&path)
